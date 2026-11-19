@@ -2,640 +2,507 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ $docNumber }} - {{ $template->name }}</title>
+    <title>{{ $docNumber }}</title>
     <style>
         @page {
-            size: a4 portrait;
-            margin: 4mm 8mm 4mm 8mm;
+            size: A4 portrait;
+            margin: 5mm 8mm 5mm 8mm;
         }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 6.9pt;
-            color: {{ $design['text_color'] ?? '#202124' }};
-            line-height: 1.15;
-            background-color: #ffffff;
+            font-family: 'DejaVu Sans', sans-serif;
+            font-size: 7pt;
+            color: #1F2937;
+            line-height: 1.18;
+            background: #ffffff;
             position: relative;
         }
 
-        /* Fixed Centered Background Watermark */
-        .watermark-bg {
+        /* ─── WATERMARK ─── */
+        .wm {
             position: fixed;
-            top: 280px;
-            left: 130px;
-            width: 320px;
-            text-align: center;
+            top: 230px; left: 100px;
+            width: 370px;
             z-index: -1000;
         }
-        .watermark-bg img {
-            width: 320px;
-            height: auto;
-        }
 
-        /* Fluid top wave */
-        .top-wave {
+        /* ─── HEADER ─── */
+        .hdr-tbl {
             width: 100%;
-            height: 12px;
-            background: linear-gradient(135deg, {{ $design['primary_color'] ?? '#F36B12' }}, {{ $design['secondary_color'] ?? '#E94B0B' }});
-            border-bottom-left-radius: 50% 8px;
-            border-bottom-right-radius: 50% 8px;
-            margin-bottom: 2px;
-        }
-
-        .header-table {
-            width: 100%;
-            margin-bottom: 2px;
             border-collapse: collapse;
+            border-spacing: 0;
+            height: 72px;
         }
-        .header-logo-td {
-            width: 60%;
+        .hdr-tbl td { border: 0; padding: 0; }
+        .hdr-left {
+            background: #ffffff;
+            padding: 7px 10px;
             vertical-align: middle;
+            height: 72px;
         }
-        .header-right-td {
-            width: 40%;
-            text-align: right;
-            vertical-align: middle;
-        }
-        .brand-table {
-            border-collapse: collapse;
-        }
-        .brand-table td {
-            vertical-align: middle;
+        .hdr-tri {
+            width: 30px;
             padding: 0;
+            vertical-align: top;
+            background: #F36B12;
+            height: 72px;
         }
-        .company-name-heading {
-            font-size: 14pt;
-            font-weight: bold;
-            color: #111827;
-            letter-spacing: 0.5px;
-            line-height: 1.05;
-        }
-        .company-tagline-text {
-            font-size: 6.5pt;
-            color: {{ $design['primary_color'] ?? '#F36B12' }};
-            font-weight: bold;
-            letter-spacing: 1.5px;
-            margin-top: 1px;
-        }
-        .top-right-slogan {
-            font-size: 8.5pt;
-            font-style: italic;
-            color: #4B5563;
-            line-height: 1.15;
+        .hdr-right {
+            background: #F36B12;
+            padding: 10px 14px 10px 3px;
+            vertical-align: middle;
+            text-align: right;
+            height: 72px;
+            width: 38%;
         }
 
-        /* Title Box */
-        .doc-title-container {
-            text-align: center;
-            margin: 1px 0 2px 0;
+        /* ─── BRAND ─── */
+        .brand-tbl { border-collapse: collapse; border-spacing: 0; }
+        .brand-tbl td { padding: 0; border: 0; vertical-align: middle; }
+        .co-name {
+            font-size: 17pt;
+            font-weight: bold;
+            color: #1A1A1A;
+            line-height: 1.0;
+            letter-spacing: 0.5px;
+            display: block;
         }
-        .doc-title-banner {
-            display: inline-block;
-            background-color: {{ $design['primary_color'] ?? '#F36B12' }};
-            color: #ffffff;
-            font-size: 10pt;
+        .co-tag {
+            font-size: 6.5pt;
+            color: #F36B12;
             font-weight: bold;
             letter-spacing: 1.2px;
-            padding: 2px 26px;
-            border-radius: 10px;
+            margin-top: 2px;
+            display: block;
+        }
+        .slogan {
+            color: #ffffff;
+            font-style: italic;
+            font-size: 8pt;
+            line-height: 1.35;
+        }
+        .slogan-bold {
+            font-weight: bold;
+            font-size: 9.5pt;
+            font-style: normal;
+        }
+
+        /* ─── TITLE ─── */
+        .title-bar {
+            background: #F36B12;
+            text-align: center;
+            padding: 5px 0 3px 0;
+            margin-bottom: 1px;
+        }
+        .doc-title {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
         }
-        .doc-subtitle-text {
+        .doc-sub {
             font-size: 6.8pt;
-            color: #4B5563;
-            font-weight: 600;
+            color: rgba(255,255,255,0.92);
+            font-style: italic;
             margin-top: 1px;
-            letter-spacing: 0.3px;
         }
 
-        /* Meta bar with Employee ID & Date */
-        .meta-bar-table {
-            width: 100%;
-            background-color: #FFF3EB;
-            border: 1px solid #FFD6C0;
-            border-radius: 4px;
-            padding: 2px 8px;
+        /* ─── ID BAR ─── */
+        .id-bar {
+            background: #FFF3E8;
+            border: 0.8pt solid #FBCBA8;
+            border-radius: 3px;
             margin-bottom: 2.5px;
-            font-size: 7.2pt;
+        }
+        .id-bar td {
+            padding: 3px 8px;
+            font-size: 7.5pt;
             font-weight: bold;
-        }
-
-        /* Section Styling */
-        .section-header {
-            background-color: {{ $design['primary_color'] ?? '#F36B12' }};
-            color: #ffffff;
-            font-size: 7.4pt;
-            font-weight: bold;
-            padding: 1.8px 8px;
-            border-radius: 7px;
-            margin-top: 2.5px;
-            margin-bottom: 1.5px;
-            letter-spacing: 0.3px;
-        }
-        .section-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 6.8pt;
-        }
-        .section-table td {
-            padding: 0.9px 2px;
-            vertical-align: top;
-        }
-        .label-cell {
-            font-weight: 600;
-            color: #374151;
-            white-space: nowrap;
-        }
-        .colon-cell {
-            width: 6px;
-            text-align: center;
-            color: #6B7280;
-            font-weight: bold;
-        }
-        .val-cell {
-            color: #111827;
-            font-weight: normal;
-        }
-
-        /* Photo Frame */
-        .photo-box-cell {
-            width: 84px;
-            text-align: center;
             vertical-align: middle;
-            padding-left: 6px;
-        }
-        .photo-frame {
-            width: 76px;
-            height: 90px;
-            border: 1.2px solid #D1D5DB;
-            border-radius: 5px;
-            overflow: hidden;
-            background-color: #F9FAFB;
-            margin: 0 auto;
-            text-align: center;
-        }
-        .photo-frame img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .photo-placeholder {
-            width: 100%;
-            height: 100%;
-            line-height: 90px;
-            font-size: 6.2pt;
-            color: #9CA3AF;
-            text-align: center;
+            border: 0;
         }
 
-        /* Checklist */
-        .checklist-item {
-            font-size: 6.5pt;
-            color: #374151;
-            line-height: 1.2;
-            margin-bottom: 1.5px;
+        /* ─── SECTION HEADER ─── */
+        .sec-hdr {
+            background: #F36B12;
+            color: #ffffff;
+            font-size: 7.3pt;
+            font-weight: bold;
+            padding: 2.5px 8px;
+            margin-top: 3px;
+            margin-bottom: 1px;
+            letter-spacing: 0.2px;
         }
-        .checkbox-square {
+        .sec-badge {
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            border: 1px solid #6B7280;
-            border-radius: 2px;
+            width: 13px;
+            height: 13px;
+            background: #ffffff;
+            color: #F36B12;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 13px;
+            font-size: 6.5pt;
+            font-weight: bold;
             margin-right: 4px;
             vertical-align: middle;
         }
 
-        /* Declaration & Signature Boxes */
-        .box-panel {
-            border: 1px solid #E5E7EB;
-            border-radius: 5px;
-            padding: 3.5px 6px;
-            background-color: #FAFAFA;
+        /* ─── DATA TABLE ─── */
+        .dt { width: 100%; border-collapse: collapse; border-spacing: 0; }
+        .dt td {
+            padding: 1.1px 2px;
+            font-size: 6.9pt;
+            vertical-align: top;
+            border: 0;
         }
-        .declaration-text {
-            font-size: 6.5pt;
-            color: #374151;
-            font-style: italic;
-            line-height: 1.2;
-            margin-bottom: 3px;
-        }
-        .sig-line {
-            border-bottom: 1px solid #4B5563;
-            display: inline-block;
-            width: 105px;
-            height: 8px;
+        .dt tr { border-bottom: 0.4pt solid #F3F4F6; }
+        .lbl { font-weight: bold; color: #374151; white-space: nowrap; width: 128px; }
+        .sep { width: 7px; color: #9CA3AF; text-align: center; }
+        .val { color: #111827; }
+
+        /* ─── PHOTO FRAME ─── */
+        .photo-frame {
+            width: 70px;
+            height: 84px;
+            border: 1pt solid #D1D5DB;
+            border-radius: 3px;
+            background: #F9FAFB;
+            overflow: hidden;
+            text-align: center;
             vertical-align: middle;
-            margin-left: 3px;
+            margin: 0 auto;
+        }
+        .photo-ph {
+            font-size: 6pt;
+            color: #9CA3AF;
+            line-height: 84px;
         }
 
-        /* Footer */
-        .footer-banner {
-            margin-top: 3px;
-            background-color: {{ $design['primary_color'] ?? '#F36B12' }};
-            color: #ffffff;
-            border-radius: 4px;
-            padding: 3px 10px;
-            font-size: 6.6pt;
-            font-weight: 500;
-        }
-        .footer-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .footer-table td {
+        /* ─── CHECKBOX ─── */
+        .chk {
+            display: inline-block;
+            width: 7px; height: 7px;
+            border: 0.8pt solid #6B7280;
+            margin-right: 3px;
             vertical-align: middle;
-            color: #ffffff;
         }
+        .ci { font-size: 6.5pt; color: #374151; line-height: 1.6; display: block; }
+
+        /* ─── PANEL BOX ─── */
+        .panel {
+            border: 0.5pt solid #E5E7EB;
+            border-radius: 3px;
+            padding: 3px 5px;
+            background: #FAFAFA;
+        }
+        .decl-text {
+            font-size: 6.5pt;
+            font-style: italic;
+            color: #374151;
+            line-height: 1.25;
+            margin-bottom: 2.5px;
+        }
+
+        /* ─── SIG LINE ─── */
+        .sig-line {
+            display: inline-block;
+            border-bottom: 0.8pt solid #374151;
+            width: 100px; height: 9px;
+            vertical-align: bottom;
+        }
+
+        /* ─── FOOTER ─── */
+        .footer {
+            background: #2B2B2B;
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 3px;
+            margin-top: 3px;
+            font-size: 6.5pt;
+        }
+        .footer td { color: #ffffff; border: 0; padding: 0 2px; vertical-align: middle; }
     </style>
 </head>
 <body>
 
-    <!-- Centered Background Watermark -->
-    @if(!empty($watermarkBase64))
-        <div class="watermark-bg">
-            <img src="{{ $watermarkBase64 }}" alt="Gosika Watermark">
-        </div>
-    @elseif(!empty($logoBase64))
-        <div class="watermark-bg">
-            <img src="{{ $logoBase64 }}" alt="Gosika Watermark">
-        </div>
-    @endif
+@if(!empty($watermarkBase64))
+<div class="wm"><img src="{{ $watermarkBase64 }}" style="width:370px; opacity:0.08;"></div>
+@elseif(!empty($logoBase64))
+<div class="wm"><img src="{{ $logoBase64 }}" style="width:370px; opacity:0.06;"></div>
+@endif
 
-    <!-- Top orange wave -->
-    <div class="top-wave"></div>
+{{-- ═══════════ HEADER ═══════════ --}}
+<table class="hdr-tbl">
+    <tr>
+        {{-- Left: Logo --}}
+        <td class="hdr-left">
+            <table class="brand-tbl">
+                <tr>
+                    @if(!empty($iconBase64))
+                    <td style="width:50px; padding-right:7px; vertical-align:middle;">
+                        <img src="{{ $iconBase64 }}" style="width:46px; height:46px; object-fit:contain; display:block;">
+                    </td>
+                    @endif
+                    <td style="vertical-align:middle;">
+                        <span class="co-name">GOSIKA</span>
+                        <span class="co-name">INFOSYS</span>
+                        <span class="co-tag">Build &bull; Innovate &bull; Grow</span>
+                    </td>
+                </tr>
+            </table>
+        </td>
 
-    <!-- Header Table -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-td">
-                <table class="brand-table">
+        {{-- Triangle diagonal --}}
+        <td class="hdr-tri">
+            <div style="width:0;height:0;border-top:72px solid #ffffff;border-right:30px solid transparent;"></div>
+        </td>
+
+        {{-- Right: Orange + tagline --}}
+        <td class="hdr-right">
+            <div class="slogan">
+                Together for a<br>
+                <span class="slogan-bold">Better Tomorrow</span>
+            </div>
+        </td>
+    </tr>
+</table>
+
+{{-- ═══════════ TITLE ═══════════ --}}
+<div class="title-bar">
+    <div class="doc-title">EMPLOYEE REGISTRATION FORM</div>
+    <div class="doc-sub">Confidential &ndash; Human Resources Department</div>
+</div>
+
+{{-- ═══════════ ID BAR ═══════════ --}}
+<table class="id-bar dt">
+    <tr>
+        <td style="width:50%; color:#E94B0B;">
+            &#9998;&nbsp;<span style="color:#374151;">Employee ID:</span>&nbsp;
+            <span style="color:#111827; font-size:7.5pt;">{{ $v['employee_id'] ?? $employee->employee_code }}</span>
+        </td>
+        <td style="width:50%; text-align:right; color:#E94B0B;">
+            &#128197;&nbsp;<span style="color:#374151;">Registration Date:</span>&nbsp;
+            <span style="color:#111827; font-size:7.5pt;">{{ $v['employee_registration_date'] ?? date('d-m-Y') }}</span>
+        </td>
+    </tr>
+</table>
+
+{{-- ═══════════ SECTION A: Personal Information ═══════════ --}}
+<div class="sec-hdr"><span class="sec-badge">A</span> Personal Information</div>
+<table class="dt">
+    <tr>
+        {{-- Fields --}}
+        <td style="width:79%; vertical-align:top;">
+            <table class="dt">
+                <tr>
+                    <td class="lbl">Full Legal Name</td><td class="sep">:</td>
+                    <td class="val" colspan="4"><strong>{{ $v['employee_full_name'] ?? '' }}</strong></td>
+                </tr>
+                <tr>
+                    <td class="lbl">Date of Birth</td><td class="sep">:</td>
+                    <td class="val" style="width:105px;">{{ $v['employee_date_of_birth'] ?? '' }}</td>
+                    <td class="lbl" style="width:48px; padding-left:4px;">Gender</td><td class="sep">:</td>
+                    <td class="val">{{ $v['employee_gender'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Citizenship / ID No.</td><td class="sep">:</td>
+                    <td class="val" colspan="4">{{ $v['employee_citizenship_number'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Permanent Address</td><td class="sep">:</td>
+                    <td class="val" colspan="4">{{ $v['employee_permanent_address'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Current Address</td><td class="sep">:</td>
+                    <td class="val" colspan="4">{{ $v['employee_current_address'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Contact Number</td><td class="sep">:</td>
+                    <td class="val" style="width:105px;">{{ $v['employee_phone'] ?? '' }}</td>
+                    <td class="lbl" style="padding-left:4px;">Email Address</td><td class="sep">:</td>
+                    <td class="val">{{ $v['employee_email'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Emergency Contact Name</td><td class="sep">:</td>
+                    <td class="val" colspan="4">{{ $v['employee_emergency_contact_name'] ?? '' }}</td>
+                </tr>
+                <tr>
+                    <td class="lbl">Emergency Contact No.</td><td class="sep">:</td>
+                    <td class="val" style="width:105px;">{{ $v['employee_emergency_contact_phone'] ?? '' }}</td>
+                    <td class="lbl" style="padding-left:4px;">Relationship</td><td class="sep">:</td>
+                    <td class="val">{{ $v['employee_emergency_contact_relation'] ?? '' }}</td>
+                </tr>
+            </table>
+        </td>
+        {{-- Photo --}}
+        <td style="width:21%; vertical-align:middle; text-align:center; padding-left:4px;">
+            <div class="photo-frame">
+                @if($employee->photo_path && file_exists(storage_path('app/public/' . $employee->photo_path)))
+                    <img src="{{ storage_path('app/public/' . $employee->photo_path) }}"
+                         style="width:70px;height:84px;object-fit:cover;display:block;">
+                @else
+                    <div class="photo-ph">Affix<br>Photo</div>
+                @endif
+            </div>
+        </td>
+    </tr>
+</table>
+
+{{-- ═══════════ SECTION B: Education ═══════════ --}}
+<div class="sec-hdr"><span class="sec-badge">B</span> Educational &amp; Professional Information</div>
+<table class="dt">
+    <tr><td class="lbl" style="width:138px;">Highest Qualification</td><td class="sep">:</td><td class="val">{{ $v['employee_highest_qualification'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Institution</td><td class="sep">:</td><td class="val">{{ $v['employee_institution'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Technical Skills</td><td class="sep">:</td><td class="val">{{ $v['employee_technical_skills'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Previous Work Experience</td><td class="sep">:</td><td class="val">{{ $v['employee_previous_experience'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Previous Organization</td><td class="sep">:</td><td class="val">{{ $v['employee_previous_organization'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Relevant Certifications</td><td class="sep">:</td><td class="val">{{ $v['employee_certifications'] ?? 'Not Provided' }}</td></tr>
+    <tr><td class="lbl">Portfolio / GitHub / LinkedIn</td><td class="sep">:</td><td class="val" style="color:#2563EB;">{{ $v['employee_portfolio'] ?? 'Not Provided' }}</td></tr>
+</table>
+
+{{-- ═══════════ SECTION C: Employment Info ═══════════ --}}
+<div class="sec-hdr"><span class="sec-badge">C</span> Employment Information</div>
+<table class="dt">
+    <tr>
+        <td style="width:50%; vertical-align:top; padding-right:5px;">
+            <table class="dt">
+                <tr><td class="lbl" style="width:118px;">Department</td><td class="sep">:</td><td class="val">{{ $v['employee_department'] ?? 'General' }}</td></tr>
+                <tr><td class="lbl">Designation</td><td class="sep">:</td><td class="val"><strong>{{ $v['employee_designation'] ?? 'Not Assigned' }}</strong></td></tr>
+                <tr><td class="lbl">Employee Type</td><td class="sep">:</td><td class="val">{{ $v['employee_employment_type'] ?? 'Full-time' }}</td></tr>
+                <tr><td class="lbl">Employment Start Date</td><td class="sep">:</td><td class="val">{{ $v['employee_joining_date'] ?? '' }}</td></tr>
+                <tr><td class="lbl">Probation Period</td><td class="sep">:</td><td class="val">{{ $v['employee_probation_period'] ?? '3 Months' }}</td></tr>
+            </table>
+        </td>
+        <td style="width:50%; vertical-align:top; padding-left:5px; border-left:0.5pt dashed #E5E7EB;">
+            <table class="dt">
+                <tr><td class="lbl" style="width:112px;">Reporting Manager</td><td class="sep">:</td><td class="val">{{ $v['employee_reporting_manager'] ?? '' }}</td></tr>
+                <tr><td class="lbl">Work Location</td><td class="sep">:</td><td class="val">{{ $v['employee_work_location'] ?? 'Kathmandu Office' }}</td></tr>
+                <tr><td class="lbl">Working Schedule</td><td class="sep">:</td><td class="val">{{ $v['employee_working_schedule'] ?? '9 AM – 6 PM' }}</td></tr>
+                <tr><td class="lbl">Monthly Salary</td><td class="sep">:</td><td class="val"><strong>{{ $v['employee_salary'] ?? '' }}</strong></td></tr>
+                <tr><td class="lbl">Payment Method</td><td class="sep">:</td><td class="val">{{ $v['employee_payment_method'] ?? 'Bank Transfer' }}</td></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+{{-- ═══════════ SECTION D: Roles & Responsibilities ═══════════ --}}
+<div class="sec-hdr"><span class="sec-badge">D</span> Assigned Company Role &amp; Responsibilities</div>
+<table class="dt">
+    <tr><td class="lbl" style="width:138px;">Primary Responsibilities</td><td class="sep">:</td><td class="val">{{ $v['employee_primary_responsibilities'] ?? 'As assigned by Department Head' }}</td></tr>
+    <tr><td class="lbl">Secondary Responsibilities</td><td class="sep">:</td><td class="val">{{ $v['employee_secondary_responsibilities'] ?? 'Adhere to company policies and assist team deliverables' }}</td></tr>
+    <tr><td class="lbl">Assigned Projects</td><td class="sep">:</td><td class="val">{{ $v['employee_assigned_projects'] ?? 'Internal &amp; Client Systems' }}</td></tr>
+    <tr><td class="lbl">Performance Targets</td><td class="sep">:</td><td class="val">{{ $v['employee_performance_targets'] ?? 'Meet deliverables according to project timelines' }}</td></tr>
+    <tr><td class="lbl">Reporting Requirements</td><td class="sep">:</td><td class="val">{{ $v['employee_reporting_requirements'] ?? 'Regular progress reports to supervisor' }}</td></tr>
+    <tr><td class="lbl">Authorized System Access</td><td class="sep">:</td><td class="val">{{ $v['employee_authorized_system_access'] ?? 'Assigned company tools &amp; workspace access' }}</td></tr>
+    <tr><td class="lbl">Department Head</td><td class="sep">:</td><td class="val">{{ $v['employee_department_head'] ?? '' }}</td></tr>
+</table>
+
+{{-- ═══════════ SECTION E + F ═══════════ --}}
+<table style="width:100%; border-collapse:collapse; border-spacing:0; margin-top:3px;">
+    <tr>
+        {{-- E: Documents Checklist --}}
+        <td style="width:44%; vertical-align:top; padding-right:3px;">
+            <div class="sec-hdr" style="margin-top:0;"><span class="sec-badge">E</span> Documents Checklist</div>
+            <div class="panel">
+                <table style="width:100%; border-collapse:collapse; font-size:6.5pt;">
                     <tr>
-                        @if(!empty($iconBase64))
-                            <td style="width: 44px; padding-right: 6px;">
-                                <img src="{{ $iconBase64 }}" alt="Gosika Icon" style="width: 38px; height: 32px; object-fit: contain;">
-                            </td>
-                        @elseif(!empty($logoBase64))
-                            <td style="width: 44px; padding-right: 6px;">
-                                <img src="{{ $logoBase64 }}" alt="Gosika Logo" style="width: 38px; height: 32px; object-fit: contain;">
-                            </td>
-                        @endif
-                        <td>
-                            <div class="company-name-heading">{{ $sections['header']['company_name'] ?? 'GOSIKA INFOSYS' }}</div>
-                            <div class="company-tagline-text">{{ $sections['header']['tagline'] ?? 'Build • Innovate • Grow' }}</div>
+                        <td style="width:50%; vertical-align:top;">
+                            <span class="ci"><span class="chk"></span>Citizenship / Valid ID Copy</span>
+                            <span class="ci"><span class="chk"></span>Passport-size Photograph</span>
+                            <span class="ci"><span class="chk"></span>CV / Resume</span>
+                            <span class="ci"><span class="chk"></span>Educational Certificates</span>
+                            <span class="ci"><span class="chk"></span>Other Relevant Documents</span>
+                        </td>
+                        <td style="width:50%; vertical-align:top;">
+                            <span class="ci"><span class="chk"></span>Experience Certificate</span>
+                            <span class="ci"><span class="chk"></span>Signed Employment Agreement</span>
+                            <span class="ci"><span class="chk"></span>Signed Confidentiality Agr.</span>
+                            <span class="ci"><span class="chk"></span>Signed Employment Bond</span>
                         </td>
                     </tr>
                 </table>
-            </td>
-            <td class="header-right-td">
-                <div class="top-right-slogan">
-                    Together for a<br>
-                    <span style="color: {{ $design['primary_color'] ?? '#F36B12' }}; font-weight: bold;">Better Tomorrow</span>
+            </div>
+        </td>
+
+        {{-- F: Employee Declaration --}}
+        <td style="width:56%; vertical-align:top; padding-left:3px;">
+            <div class="sec-hdr" style="margin-top:0;"><span class="sec-badge">F</span> Employee Declaration</div>
+            <div class="panel">
+                <div class="decl-text">
+                    &ldquo;I hereby declare that the information provided above is true and accurate. I agree to comply with Gosika Infosys company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.&rdquo;
                 </div>
-            </td>
-        </tr>
-    </table>
-
-    <!-- Document Title -->
-    <div class="doc-title-container">
-        <div class="doc-title-banner">{{ $sections['header']['title'] ?? 'EMPLOYEE REGISTRATION FORM' }}</div>
-        <div class="doc-subtitle-text">{{ $sections['header']['subtitle'] ?? 'Confidential – Human Resources Department' }}</div>
-    </div>
-
-    <!-- Meta Bar -->
-    <table class="meta-bar-table">
-        <tr>
-            <td style="width: 50%; color: {{ $design['primary_color'] ?? '#F36B12' }};">
-                &#9998; <strong>{{ $sections['header']['badge_id_label'] ?? 'Employee ID' }}:</strong>
-                <span style="color: #111827; margin-left: 4px;">{{ $v['employee_id'] ?? $employee->employee_code }}</span>
-            </td>
-            <td style="width: 50%; text-align: right; color: {{ $design['primary_color'] ?? '#F36B12' }};">
-                &#128197; <strong>{{ $sections['header']['badge_date_label'] ?? 'Registration Date' }}:</strong>
-                <span style="color: #111827; margin-left: 4px;">{{ $v['employee_registration_date'] ?? date('d-m-Y') }}</span>
-            </td>
-        </tr>
-    </table>
-
-    <!-- SECTION A: Personal Information -->
-    <div class="section-header">A. {{ $sections['section_a']['title'] ?? 'Personal Information' }}</div>
-    <table class="section-table">
-        <tr>
-            <td style="vertical-align: top; width: 78%;">
-                <table class="section-table">
+                <table style="width:100%; border-collapse:collapse; font-size:7pt;">
                     <tr>
-                        <td class="label-cell" style="width: 130px;">Full Legal Name</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" colspan="4"><strong>{{ $v['employee_full_name'] ?? '' }}</strong></td>
+                        <td style="width:88px; font-weight:bold; color:#374151; padding:1px 0;">Employee Name:</td>
+                        <td style="padding:1px 0;"><strong>{{ $v['employee_full_name'] ?? '' }}</strong></td>
                     </tr>
                     <tr>
-                        <td class="label-cell">Date of Birth</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" style="width: 110px;">{{ $v['employee_date_of_birth'] ?? '' }}</td>
-                        <td class="label-cell" style="width: 50px;">Gender</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_gender'] ?? '' }}</td>
+                        <td style="font-weight:bold; color:#374151; padding:2px 0;">Signature:</td>
+                        <td style="padding:2px 0;"><span class="sig-line"></span></td>
                     </tr>
                     <tr>
-                        <td class="label-cell">Citizenship / ID Number</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" colspan="4">{{ $v['employee_citizenship_number'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Permanent Address</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" colspan="4">{{ $v['employee_permanent_address'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Current Address</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" colspan="4">{{ $v['employee_current_address'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Contact Number</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_phone'] ?? '' }}</td>
-                        <td class="label-cell">Email</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_email'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Emergency Contact Name</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell" colspan="4">{{ $v['employee_emergency_contact_name'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Emergency Contact Phone</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_emergency_contact_phone'] ?? '' }}</td>
-                        <td class="label-cell">Relationship</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_emergency_contact_relation'] ?? '' }}</td>
+                        <td style="font-weight:bold; color:#374151; padding:1px 0;">Date:</td>
+                        <td style="padding:1px 0;">{{ $v['employee_registration_date'] ?? date('d-m-Y') }}</td>
                     </tr>
                 </table>
-            </td>
-            <td class="photo-box-cell">
-                <div class="photo-frame">
-                    @if($employee->photo_path && file_exists(storage_path('app/public/' . $employee->photo_path)))
-                        <img src="{{ storage_path('app/public/' . $employee->photo_path) }}" alt="Photo">
-                    @else
-                        <div class="photo-placeholder">Affix Photo</div>
-                    @endif
-                </div>
-            </td>
-        </tr>
-    </table>
+            </div>
+        </td>
+    </tr>
+</table>
 
-    <!-- SECTION B: Educational & Professional Information -->
-    <div class="section-header">B. {{ $sections['section_b']['title'] ?? 'Educational & Professional Information' }}</div>
-    <table class="section-table">
+{{-- ═══════════ SECTION G: HR Verification ═══════════ --}}
+<div class="sec-hdr" style="margin-top:3px;"><span class="sec-badge">G</span> HR Verification</div>
+<div class="panel">
+    <table style="width:100%; border-collapse:collapse; font-size:6.5pt;">
         <tr>
-            <td class="label-cell" style="width: 155px;">Highest Qualification</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_highest_qualification'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Institution</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_institution'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Technical Skills</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_technical_skills'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Previous Work Experience</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_previous_experience'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Previous Organization</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_previous_organization'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Relevant Certifications</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_certifications'] ?? 'Not Provided' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Portfolio / GitHub / LinkedIn</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell" style="color: #2563EB;">{{ $v['employee_portfolio'] ?? 'Not Provided' }}</td>
-        </tr>
-    </table>
-
-    <!-- SECTION C: Employment Information -->
-    <div class="section-header">C. {{ $sections['section_c']['title'] ?? 'Employment Information' }}</div>
-    <table class="section-table">
-        <tr>
-            <td style="width: 50%; vertical-align: top; padding-right: 6px;">
-                <table class="section-table">
-                    <tr>
-                        <td class="label-cell" style="width: 120px;">Department</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell"><strong>{{ $v['employee_department'] ?? 'General' }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Designation</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell"><strong>{{ $v['employee_designation'] ?? 'Not Assigned' }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Employee Type</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_employment_type'] ?? 'Full Time' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Employment Start Date</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_joining_date'] ?? '' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Probation Period</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_probation_period'] ?? '3 Months' }}</td>
-                    </tr>
-                </table>
+            <td style="width:25%; vertical-align:top;">
+                <span class="ci"><span class="chk"></span>Documents Verified</span>
+                <span class="ci"><span class="chk"></span>Employee ID Generated</span>
             </td>
-            <td style="width: 50%; vertical-align: top; padding-left: 6px; border-left: 1px dashed #E5E7EB;">
-                <table class="section-table">
+            <td style="width:25%; vertical-align:top;">
+                <span class="ci"><span class="chk"></span>Employment Agr. Signed</span>
+                <span class="ci"><span class="chk"></span>Bond Signed</span>
+            </td>
+            <td style="width:22%; vertical-align:top;">
+                <span class="ci"><span class="chk"></span>Company ID Issued</span>
+                <span class="ci"><span class="chk"></span>System Access Approved</span>
+            </td>
+            <td style="width:28%; vertical-align:middle; padding-left:7px; border-left:0.5pt dashed #D1D5DB;">
+                <table style="width:100%; border-collapse:collapse; font-size:6.5pt;">
                     <tr>
-                        <td class="label-cell" style="width: 115px;">Reporting Manager</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_reporting_manager'] ?? 'Department Head' }}</td>
+                        <td style="width:72px; color:#4B5563; padding:1px 0;">HR Representative:</td>
+                        <td style="padding:1px 0;"><strong>{{ $v['hr_representative_name'] ?? '' }}</strong></td>
                     </tr>
                     <tr>
-                        <td class="label-cell">Work Location</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_work_location'] ?? 'Kathmandu Office' }}</td>
+                        <td style="color:#4B5563; padding:2px 0;">HR Signature:</td>
+                        <td><span class="sig-line" style="width:62px;"></span></td>
                     </tr>
                     <tr>
-                        <td class="label-cell">Working Schedule</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_working_schedule'] ?? '9 AM – 6 PM' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Monthly Salary</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell"><strong>{{ $v['employee_salary'] ?? '' }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td class="label-cell">Payment Method</td>
-                        <td class="colon-cell">:</td>
-                        <td class="val-cell">{{ $v['employee_payment_method'] ?? 'Bank Transfer' }}</td>
+                        <td style="color:#4B5563; padding:2px 0;">Auth. Signature:</td>
+                        <td><span class="sig-line" style="width:62px;"></span></td>
                     </tr>
                 </table>
             </td>
         </tr>
     </table>
+</div>
 
-    <!-- SECTION D: Assigned Company Role & Responsibilities -->
-    <div class="section-header">D. {{ $sections['section_d']['title'] ?? 'Assigned Company Role & Responsibilities' }}</div>
-    <table class="section-table">
+{{-- ═══════════ FOOTER ═══════════ --}}
+<div class="footer">
+    <table style="width:100%; border-collapse:collapse;">
         <tr>
-            <td class="label-cell" style="width: 155px;">Primary Responsibilities</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_primary_responsibilities'] ?? 'As assigned by Department Head and Employment Agreement' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Secondary Responsibilities</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_secondary_responsibilities'] ?? 'Adhere to company policies and assist team deliverables' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Assigned Projects</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_assigned_projects'] ?? 'Internal & Client Systems' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Performance Targets</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_performance_targets'] ?? 'Meet deliverables according to project timelines' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Reporting Requirements</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_reporting_requirements'] ?? 'Regular progress reports to supervisor' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Authorized System Access</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_authorized_system_access'] ?? 'Assigned company tools & workspace access' }}</td>
-        </tr>
-        <tr>
-            <td class="label-cell">Department Head</td>
-            <td class="colon-cell">:</td>
-            <td class="val-cell">{{ $v['employee_department_head'] ?? '' }}</td>
-        </tr>
-    </table>
-
-    <!-- SECTION E & F: Checklist (Left) and Declaration (Right) -->
-    <table style="width: 100%; border-collapse: collapse; margin-top: 2px;">
-        <tr>
-            <!-- SECTION E: Checklist -->
-            <td style="width: 44%; vertical-align: top; padding-right: 4px;">
-                <div class="section-header" style="font-size: 7.2pt; padding: 1.5px 7px;">E. {{ $sections['section_e']['title'] ?? 'Documents Checklist' }}</div>
-                <div class="box-panel" style="padding: 2.5px 5px;">
-                    <table style="width: 100%; font-size: 6.3pt; border-collapse: collapse;">
-                        <tr>
-                            <td style="width: 50%; vertical-align: top;">
-                                <div class="checklist-item"><span class="checkbox-square"></span> Citizenship Copy</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Passport Photo</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> CV / Resume</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Academic Certs</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Other Documents</div>
-                            </td>
-                            <td style="width: 50%; vertical-align: top;">
-                                <div class="checklist-item"><span class="checkbox-square"></span> Experience Cert</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Employment Agr.</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Confidentiality</div>
-                                <div class="checklist-item"><span class="checkbox-square"></span> Employment Bond</div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </td>
-
-            <!-- SECTION F: Employee Declaration -->
-            <td style="width: 56%; vertical-align: top; padding-left: 4px;">
-                <div class="section-header" style="font-size: 7.2pt; padding: 1.5px 7px;">F. {{ $sections['section_f']['title'] ?? 'Employee Declaration' }}</div>
-                <div class="box-panel" style="padding: 2.5px 5px;">
-                    <div class="declaration-text">
-                        "{{ $sections['section_f']['declaration_text'] ?? 'I hereby declare that the information provided above is true and accurate. I agree to comply with Gosika Infosys company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.' }}"
-                    </div>
-                    <table style="width: 100%; font-size: 6.8pt; border-collapse: collapse;">
-                        <tr>
-                            <td style="width: 85px; font-weight: bold; color: #374151;">Employee Name:</td>
-                            <td><strong>{{ $v['employee_full_name'] ?? '' }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold; color: #374151; padding-top: 1.5px;">Signature:</td>
-                            <td style="padding-top: 1.5px;"><span class="sig-line" style="width: 110px;"></span></td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: bold; color: #374151; padding-top: 1.5px;">Date:</td>
-                            <td style="padding-top: 1.5px;">{{ $v['employee_registration_date'] ?? date('d-m-Y') }}</td>
-                        </tr>
-                    </table>
-                </div>
+            <td style="width:35%;">&#128205; {{ $v['company_address'] ?? 'Kathmandu, Nepal' }}</td>
+            <td style="width:25%;">&#127760; {{ $v['company_website'] ?? 'www.gosika.com' }}</td>
+            <td style="width:25%;">&#9993; {{ $v['company_email'] ?? 'info@gosika.com' }}</td>
+            <td style="width:15%; text-align:right; font-weight:bold;">
+                Gosika Infosys<br>
+                <span style="font-weight:normal; font-size:5.8pt;">Growing Together</span>
             </td>
         </tr>
     </table>
-
-    <!-- SECTION G: HR Verification -->
-    <div class="section-header" style="font-size: 7.2pt; padding: 1.5px 7px; margin-top: 2px;">G. {{ $sections['section_g']['title'] ?? 'HR Verification' }}</div>
-    <div class="box-panel" style="padding: 2.5px 5px;">
-        <table style="width: 100%; font-size: 6.5pt; border-collapse: collapse;">
-            <tr>
-                <td style="width: 25%; vertical-align: top;">
-                    <div class="checklist-item"><span class="checkbox-square"></span> Documents Verified</div>
-                    <div class="checklist-item"><span class="checkbox-square"></span> Employee ID Generated</div>
-                </td>
-                <td style="width: 25%; vertical-align: top;">
-                    <div class="checklist-item"><span class="checkbox-square"></span> Employment Agr. Signed</div>
-                    <div class="checklist-item"><span class="checkbox-square"></span> Bond Agreement Signed</div>
-                </td>
-                <td style="width: 22%; vertical-align: top;">
-                    <div class="checklist-item"><span class="checkbox-square"></span> Company ID Issued</div>
-                    <div class="checklist-item"><span class="checkbox-square"></span> System Access Approved</div>
-                </td>
-                <td style="width: 28%; vertical-align: middle; padding-left: 8px; border-left: 1px dashed #D1D5DB;">
-                    <table style="width: 100%; font-size: 6.5pt; border-collapse: collapse;">
-                        <tr>
-                            <td style="color: #4B5563; white-space: nowrap;">HR Rep:</td>
-                            <td style="font-weight: bold;">{{ $v['hr_representative_name'] ?? 'HR Representative' }}</td>
-                        </tr>
-                        <tr>
-                            <td style="color: #4B5563; padding-top: 1px; white-space: nowrap;">HR Sig:</td>
-                            <td style="padding-top: 1px;"><span class="sig-line" style="width: 65px;"></span></td>
-                        </tr>
-                        <tr>
-                            <td style="color: #4B5563; padding-top: 1px; white-space: nowrap;">Auth Sig:</td>
-                            <td style="padding-top: 1px;"><span class="sig-line" style="width: 65px;"></span></td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Footer Banner -->
-    <div class="footer-banner">
-        <table class="footer-table">
-            <tr>
-                <td style="width: 32%;">&#128205; {{ $v['company_address'] ?? 'Corporate Tower, Tinkune' }}, {{ $v['company_city'] ?? 'Kathmandu' }}</td>
-                <td style="width: 22%;">&#127760; {{ $v['company_website'] ?? 'www.gosika.com' }}</td>
-                <td style="width: 24%;">&#9993; {{ $v['company_email'] ?? 'info@gosika.com' }}</td>
-                <td style="width: 22%; text-align: right; font-weight: bold;">
-                    {{ $sections['footer']['brand_text'] ?? 'Gosika Infosys' }} <span style="font-weight: normal; font-size: 6.2pt; display: block;">Growing Together</span>
-                </td>
-            </tr>
-        </table>
-    </div>
+</div>
 
 </body>
 </html>
