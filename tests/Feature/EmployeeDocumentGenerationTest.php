@@ -167,4 +167,53 @@ class EmployeeDocumentGenerationTest extends TestCase
         $this->assertEquals($oldVersion + 1, $bondTemplate->current_version);
         $this->assertEquals('Official Employment Bond Agreement (Updated)', $bondTemplate->name);
     }
+
+    public function test_document_details_and_filing_can_be_edited_and_regenerated(): void
+    {
+        $employee = Employee::create([
+            'employee_code' => 'GOS-EMP-0012',
+            'first_name' => 'Custom',
+            'last_name' => 'Employee',
+            'full_name' => 'Custom Employee',
+            'email' => 'custom.employee@gosika.com',
+            'phone' => '9801112233',
+            'gender' => 'male',
+            'joining_date' => '2026-11-01',
+            'status' => 'active',
+        ]);
+
+        app(\App\Services\DocumentGenerationService::class)->generateAllDocumentsForEmployee($employee);
+
+        $doc = GeneratedEmployeeDocument::where('employee_id', $employee->id)
+            ->where('document_type', 'registration_form')
+            ->first();
+
+        $response = $this->actingAs($this->admin)
+            ->post("/employee-documents/{$doc->id}/update-details", [
+                'status' => 'printed',
+                'physical_location' => 'Cabinet C, Shelf 1, Folder 12',
+                'received_by_hr' => 'Bikash HR Officer',
+                'hr_remarks' => 'Custom edited qualifications and terms verified.',
+                'highest_qualification' => 'Master of Computer Science',
+                'institution' => 'Pulchowk Campus, IOE',
+                'technical_skills' => 'Laravel, React, PostgreSQL',
+                'monthly_salary' => 'NPR 85,000',
+                'work_location' => 'Kathmandu Tinkune Office',
+                'citizenship_number' => '9988-7766-5544',
+            ]);
+
+        $response->assertSessionHas('success');
+
+        $doc->refresh();
+        $this->assertEquals('printed', $doc->status);
+        $this->assertEquals('Cabinet C, Shelf 1, Folder 12', $doc->physical_location);
+        $this->assertEquals('Bikash HR Officer', $doc->received_by_hr);
+        $this->assertNotNull($doc->printed_at);
+
+        // Verify updated snapshot contains custom edited data
+        $this->assertEquals('Master of Computer Science', $doc->snapshot_data['{{employee.highest_qualification}}']);
+        $this->assertEquals('Pulchowk Campus, IOE', $doc->snapshot_data['{{employee.institution}}']);
+        $this->assertEquals('9988-7766-5544', $doc->snapshot_data['{{employee.citizenship_number}}']);
+        Storage::disk('public')->assertExists($doc->file_path);
+    }
 }

@@ -49,12 +49,9 @@ export default function Show({
     // Modals for Employee Documents handling
     const [previewDoc, setPreviewDoc] = useState(null);
     const [statusModalDoc, setStatusModalDoc] = useState(null);
-    const [statusForm, setStatusForm] = useState({
-        status: 'signed',
-        physical_location: '',
-        received_by_hr: '',
-        hr_remarks: '',
-    });
+    const [modalSubTab, setModalSubTab] = useState('filing'); // 'filing' | 'details'
+    const [statusForm, setStatusForm] = useState({});
+    const [isSavingDetails, setIsSavingDetails] = useState(false);
     const [uploadModalDoc, setUploadModalDoc] = useState(null);
     const [scannedFile, setScannedFile] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -78,11 +75,62 @@ export default function Show({
 
     const handleOpenStatusModal = (doc) => {
         setStatusModalDoc(doc);
+        setModalSubTab('filing');
+        const snap = doc.snapshot_data || {};
         setStatusForm({
-            status: doc.status || 'signed',
+            // Physical Filing
+            status: doc.status || 'generated',
             physical_location: doc.physical_location || '',
             received_by_hr: doc.received_by_hr || '',
             hr_remarks: doc.hr_remarks || '',
+
+            // Document Details & Text
+            full_name: snap['{{employee.full_name}}'] || employee.full_name || '',
+            employee_id: snap['{{employee.id}}'] || employee.employee_code || '',
+            date_of_birth: snap['{{employee.date_of_birth}}'] || employee.date_of_birth || '',
+            gender: snap['{{employee.gender}}'] || employee.gender || '',
+            citizenship_number: snap['{{employee.citizenship_number}}'] || '',
+            permanent_address: snap['{{employee.permanent_address}}'] || employee.permanent_address || '',
+            current_address: snap['{{employee.current_address}}'] || employee.current_address || employee.permanent_address || '',
+            phone: snap['{{employee.phone}}'] || employee.phone || '',
+            email: snap['{{employee.email}}'] || employee.email || '',
+            emergency_contact_name: snap['{{employee.emergency_contact_name}}'] || employee.emergency_contact_name || '',
+            emergency_contact_phone: snap['{{employee.emergency_contact_phone}}'] || employee.emergency_contact_phone || '',
+            emergency_contact_relation: snap['{{employee.emergency_contact_relation}}'] || employee.emergency_contact_relation || '',
+            
+            highest_qualification: snap['{{employee.highest_qualification}}'] || '',
+            institution: snap['{{employee.institution}}'] || '',
+            technical_skills: snap['{{employee.technical_skills}}'] || '',
+            previous_experience: snap['{{employee.previous_experience}}'] || '',
+            previous_organization: snap['{{employee.previous_organization}}'] || '',
+            certifications: snap['{{employee.certifications}}'] || '',
+            portfolio: snap['{{employee.portfolio}}'] || '',
+
+            department: snap['{{employee.department}}'] || employee.department?.name || '',
+            designation: snap['{{employee.designation}}'] || employee.designation?.title || '',
+            employment_type: snap['{{employee.employment_type}}'] || employee.employment_type || '',
+            joining_date: snap['{{employee.joining_date}}'] || employee.joining_date || '',
+            probation_period: snap['{{employee.probation_period}}'] || '3 Months',
+            reporting_manager: snap['{{employee.reporting_manager}}'] || '',
+            work_location: snap['{{employee.work_location}}'] || 'Kathmandu Office',
+            working_schedule: snap['{{employee.working_schedule}}'] || '9 AM – 6 PM',
+            salary: snap['{{employee.salary}}'] || (employee.basic_salary ? `NPR ${employee.basic_salary}` : ''),
+            payment_method: snap['{{employee.payment_method}}'] || 'Bank Transfer',
+
+            primary_responsibilities: snap['{{employee.primary_responsibilities}}'] || '',
+            secondary_responsibilities: snap['{{employee.secondary_responsibilities}}'] || '',
+            assigned_projects: snap['{{employee.assigned_projects}}'] || '',
+            performance_targets: snap['{{employee.performance_targets}}'] || '',
+            reporting_requirements: snap['{{employee.reporting_requirements}}'] || '',
+            authorized_system_access: snap['{{employee.authorized_system_access}}'] || '',
+            department_head: snap['{{employee.department_head}}'] || '',
+
+            hr_representative_name: snap['{{hr.representative_name}}'] || 'HR Representative',
+            registration_date: snap['{{employee.registration_date}}'] || '',
+            agreement_number: snap['{{agreement.number}}'] || '',
+            agreement_date: snap['{{agreement.date}}'] || '',
+            authorized_representative: snap['{{company.authorized_representative}}'] || 'Bikash Pandey',
+            company_address: snap['{{company.address}}'] || '',
         });
     };
 
@@ -90,10 +138,15 @@ export default function Show({
         e.preventDefault();
         if (!statusModalDoc) return;
 
-        router.patch(`/employee-documents/${statusModalDoc.id}/status`, statusForm, {
+        setIsSavingDetails(true);
+        router.post(`/employee-documents/${statusModalDoc.id}/update-details`, statusForm, {
             preserveScroll: true,
             onSuccess: () => {
                 setStatusModalDoc(null);
+                setIsSavingDetails(false);
+            },
+            onError: () => {
+                setIsSavingDetails(false);
             },
         });
     };
@@ -644,9 +697,10 @@ export default function Show({
                                                 <button
                                                     onClick={() => handleOpenStatusModal(doc)}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-2xs transition"
+                                                    title="Edit document report details, text, and physical filing status"
                                                 >
                                                     <FolderCheck className="h-4 w-4" />
-                                                    <span>Status & Filing</span>
+                                                    <span>Status & Edit Details</span>
                                                 </button>
 
                                                 <button
@@ -812,9 +866,10 @@ export default function Show({
                                                 <button
                                                     onClick={() => handleOpenStatusModal(doc)}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-2xs transition"
+                                                    title="Edit document report details, text, and physical filing status"
                                                 >
                                                     <FolderCheck className="h-4 w-4" />
-                                                    <span>Status & Filing</span>
+                                                    <span>Status & Edit Details</span>
                                                 </button>
 
                                                 <button
@@ -982,81 +1037,531 @@ export default function Show({
                 )}
             </Modal>
 
-            {/* MODAL 2: Physical Status & Filing Reference Modal */}
+            {/* MODAL 2: Physical Status & Filing + Edit Document Report Details */}
             <Modal
                 isOpen={!!statusModalDoc}
                 onClose={() => setStatusModalDoc(null)}
-                title={`Update Physical Status: ${statusModalDoc?.title || ''}`}
-                maxWidth="max-w-lg"
+                title={`Edit Document Details & Filing Status: ${statusModalDoc?.title || ''}`}
+                maxWidth="max-w-3xl"
             >
                 {statusModalDoc && (
                     <form onSubmit={handleSaveStatus} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">Document Status *</label>
-                            <select
-                                value={statusForm.status}
-                                onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
-                            >
-                                <option value="generated">Generated (Initial draft created)</option>
-                                <option value="printed">Printed (Physical A4 document printed for signing)</option>
-                                <option value="signed">Physically Signed (Signed by Employee & Company)</option>
-                                <option value="archived">Archived (Stored in physical office filing cabinet)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">
-                                Physical File / Cabinet Reference Location
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Cabinet B, Shelf 3, Folder GSK-001"
-                                value={statusForm.physical_location}
-                                onChange={(e) => setStatusForm({ ...statusForm, physical_location: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
-                            />
-                            <p className="text-[10px] text-gray-400 mt-1">Specify where the signed hard copy is physically located.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">
-                                Received / Verified by HR Officer
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Sabin Shrestha"
-                                value={statusForm.received_by_hr}
-                                onChange={(e) => setStatusForm({ ...statusForm, received_by_hr: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">HR Verification Remarks</label>
-                            <textarea
-                                rows={3}
-                                placeholder="e.g. Verified citizenship copy and physical signatures in order. Stored in employee permanent file."
-                                value={statusForm.hr_remarks}
-                                onChange={(e) => setStatusForm({ ...statusForm, hr_remarks: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
-                            />
-                        </div>
-
-                        <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                        {/* Subtab Navigation */}
+                        <div className="flex border-b border-gray-200 gap-4 mb-4">
                             <button
                                 type="button"
-                                onClick={() => setStatusModalDoc(null)}
-                                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                onClick={() => setModalSubTab('filing')}
+                                className={`pb-2 text-xs font-bold transition border-b-2 ${
+                                    modalSubTab === 'filing'
+                                        ? 'border-[#F36B12] text-[#F36B12]'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
                             >
-                                Cancel
+                                1. Physical Filing & Verification Status
                             </button>
                             <button
-                                type="submit"
-                                className="px-4 py-2 text-xs font-bold text-white bg-[#F36B12] hover:bg-[#E04B00] rounded-lg shadow-xs transition"
+                                type="button"
+                                onClick={() => setModalSubTab('details')}
+                                className={`pb-2 text-xs font-bold transition border-b-2 ${
+                                    modalSubTab === 'details'
+                                        ? 'border-[#F36B12] text-[#F36B12]'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
                             >
-                                Update Filing Record
+                                2. Edit Report Content & Text Details
                             </button>
+                        </div>
+
+                        {/* SUBTAB 1: Physical Filing & Verification */}
+                        {modalSubTab === 'filing' && (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Document Status *</label>
+                                        <select
+                                            value={statusForm.status || 'generated'}
+                                            onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                        >
+                                            <option value="generated">Generated (Initial draft created)</option>
+                                            <option value="printed">Printed (Physical A4 document printed for signing)</option>
+                                            <option value="signed">Physically Signed (Signed by Employee & Company)</option>
+                                            <option value="archived">Archived (Stored in physical office filing cabinet)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                                            Physical File / Cabinet Reference Location
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Cabinet A, Shelf 2, Folder GSK-0004"
+                                            value={statusForm.physical_location || ''}
+                                            onChange={(e) => setStatusForm({ ...statusForm, physical_location: e.target.value })}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                                            Received / Verified by HR Officer
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Sabin Shrestha"
+                                            value={statusForm.received_by_hr || ''}
+                                            onChange={(e) => setStatusForm({ ...statusForm, received_by_hr: e.target.value })}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                                            HR Representative Signatory Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Sabin Shrestha"
+                                            value={statusForm.hr_representative_name || ''}
+                                            onChange={(e) => setStatusForm({ ...statusForm, hr_representative_name: e.target.value })}
+                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">HR Verification & Filing Remarks</label>
+                                    <textarea
+                                        rows={3}
+                                        placeholder="e.g. Verified citizenship copy and physical signatures in order. Stored in employee permanent file."
+                                        value={statusForm.hr_remarks || ''}
+                                        onChange={(e) => setStatusForm({ ...statusForm, hr_remarks: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* SUBTAB 2: Edit Report Content & Text Details */}
+                        {modalSubTab === 'details' && (
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 text-[11px] text-[#C2410C]">
+                                    <strong>Edit Report Content:</strong> You can edit any detail or text shown in this document. Saving will immediately update the database and regenerate the physical A4 PDF.
+                                </div>
+
+                                {/* Personal Information */}
+                                <div>
+                                    <h4 className="text-xs font-black uppercase text-[#F36B12] tracking-wider mb-2">A. Personal Information</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Full Legal Name</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.full_name || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, full_name: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Date of Birth</label>
+                                            <input
+                                                type="text"
+                                                placeholder="DD-MM-YYYY"
+                                                value={statusForm.date_of_birth || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, date_of_birth: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Gender</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.gender || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, gender: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Citizenship / ID No.</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.citizenship_number || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, citizenship_number: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Contact Phone</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.phone || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, phone: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Email Address</label>
+                                            <input
+                                                type="email"
+                                                value={statusForm.email || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, email: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Permanent Address</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.permanent_address || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, permanent_address: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Current Address</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.current_address || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, current_address: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Emergency Contact Name</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.emergency_contact_name || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, emergency_contact_name: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Emergency Phone</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.emergency_contact_phone || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, emergency_contact_phone: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Relationship</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.emergency_contact_relation || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, emergency_contact_relation: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Educational & Professional */}
+                                <div className="pt-3 border-t border-gray-100">
+                                    <h4 className="text-xs font-black uppercase text-[#F36B12] tracking-wider mb-2">B. Educational & Professional</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Highest Qualification</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Bachelor in Computer Engineering"
+                                                value={statusForm.highest_qualification || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, highest_qualification: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Institution</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Kathmandu University"
+                                                value={statusForm.institution || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, institution: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Technical Skills</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. React, Laravel, Python, MySQL"
+                                                value={statusForm.technical_skills || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, technical_skills: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Previous Experience</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. 2 Years"
+                                                value={statusForm.previous_experience || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, previous_experience: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Previous Organization</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.previous_organization || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, previous_organization: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Certifications</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.certifications || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, certifications: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Portfolio / GitHub</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.portfolio || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, portfolio: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Employment Terms */}
+                                <div className="pt-3 border-t border-gray-100">
+                                    <h4 className="text-xs font-black uppercase text-[#F36B12] tracking-wider mb-2">C. Employment Terms & Compensation</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Department</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.department || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, department: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Designation</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.designation || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, designation: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Employment Type</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.employment_type || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, employment_type: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Probation Period</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.probation_period || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, probation_period: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Reporting Manager</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.reporting_manager || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, reporting_manager: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Work Location</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.work_location || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, work_location: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Working Schedule</label>
+                                            <input
+                                                type="text"
+                                                placeholder="9 AM – 6 PM"
+                                                value={statusForm.working_schedule || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, working_schedule: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Monthly Salary</label>
+                                            <input
+                                                type="text"
+                                                placeholder="NPR 50,000"
+                                                value={statusForm.salary || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, salary: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Payment Method</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.payment_method || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, payment_method: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Roles & Responsibilities */}
+                                <div className="pt-3 border-t border-gray-100">
+                                    <h4 className="text-xs font-black uppercase text-[#F36B12] tracking-wider mb-2">D. Assigned Roles & Responsibilities</h4>
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-gray-600 mb-1">Primary Responsibilities</label>
+                                        <textarea
+                                            rows={2}
+                                            value={statusForm.primary_responsibilities || ''}
+                                            onChange={(e) => setStatusForm({ ...statusForm, primary_responsibilities: e.target.value })}
+                                            className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                        />
+                                    </div>
+                                    <div className="mt-2">
+                                        <label className="block text-[11px] font-bold text-gray-600 mb-1">Secondary Responsibilities</label>
+                                        <textarea
+                                            rows={2}
+                                            value={statusForm.secondary_responsibilities || ''}
+                                            onChange={(e) => setStatusForm({ ...statusForm, secondary_responsibilities: e.target.value })}
+                                            className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Assigned Projects</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.assigned_projects || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, assigned_projects: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Performance Targets</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.performance_targets || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, performance_targets: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Reporting Requirements</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.reporting_requirements || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, reporting_requirements: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Authorized System Access</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.authorized_system_access || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, authorized_system_access: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bond / Agreement Specific Fields */}
+                                <div className="pt-3 border-t border-gray-100">
+                                    <h4 className="text-xs font-black uppercase text-[#F36B12] tracking-wider mb-2">E. Agreement & Signatory Representative</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Authorized Representative</label>
+                                            <input
+                                                type="text"
+                                                value={statusForm.authorized_representative || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, authorized_representative: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Agreement / Bond Date</label>
+                                            <input
+                                                type="text"
+                                                placeholder="DD-MM-YYYY"
+                                                value={statusForm.agreement_date || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, agreement_date: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-600 mb-1">Registration Date</label>
+                                            <input
+                                                type="text"
+                                                placeholder="DD-MM-YYYY"
+                                                value={statusForm.registration_date || ''}
+                                                onChange={(e) => setStatusForm({ ...statusForm, registration_date: e.target.value })}
+                                                className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <div className="text-[11px] text-gray-400">
+                                Changes will be saved to physical records and regenerate the official A4 PDF immediately.
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setStatusModalDoc(null)}
+                                    className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSavingDetails}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#F36B12] hover:bg-[#E04B00] rounded-lg shadow-xs transition disabled:opacity-50"
+                                >
+                                    {isSavingDetails && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                                    <span>Save & Regenerate PDF</span>
+                                </button>
+                            </div>
                         </div>
                     </form>
                 )}

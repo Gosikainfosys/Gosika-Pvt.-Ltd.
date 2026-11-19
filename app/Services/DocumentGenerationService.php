@@ -102,19 +102,21 @@ class DocumentGenerationService
         $company = CompanySetting::current();
         $employee->loadMissing(['department', 'designation']);
 
-        $regDate = $employee->created_at ? $employee->created_at->format('d-m-Y') : date('d-m-Y');
-        $joiningDate = $employee->joining_date ? $employee->joining_date->format('d-m-Y') : date('d-m-Y');
-        $dob = $employee->date_of_birth ? $employee->date_of_birth->format('d-m-Y') : '';
+        $regDate = $customData['registration_date'] ?? ($employee->created_at ? $employee->created_at->format('d-m-Y') : date('d-m-Y'));
+        $joiningDate = $customData['joining_date'] ?? ($employee->joining_date ? $employee->joining_date->format('d-m-Y') : date('d-m-Y'));
+        $dob = $customData['date_of_birth'] ?? ($employee->date_of_birth ? $employee->date_of_birth->format('d-m-Y') : '');
 
-        // Extract citizenship from notes or customData if available
+        // Extract citizenship from customData, notes or leave blank
         $citizenship = $customData['citizenship_number'] ?? '';
         if (empty($citizenship) && !empty($employee->notes) && preg_match('/citizenship[:\s]+([A-Za-z0-9\/\-]+)/i', $employee->notes, $m)) {
             $citizenship = trim($m[1]);
         }
 
-        $salaryFormatted = $employee->basic_salary !== null && $employee->basic_salary > 0
-            ? 'NPR ' . number_format((float) $employee->basic_salary, 2)
-            : 'As per contract';
+        $salaryFormatted = $customData['salary'] ?? (
+            $employee->basic_salary !== null && $employee->basic_salary > 0
+                ? 'NPR ' . number_format((float) $employee->basic_salary, 2)
+                : 'As per contract'
+        );
 
         $codeNum = preg_replace('/[^0-9]/', '', $employee->employee_code);
         if (empty($codeNum)) {
@@ -123,69 +125,74 @@ class DocumentGenerationService
             $codeNum = str_pad(substr($codeNum, -4), 4, '0', STR_PAD_LEFT);
         }
 
-        $bondNumber = 'GOS-BOND-' . $codeNum;
+        $bondNumber = $customData['agreement_number'] ?? ('GOS-BOND-' . $codeNum);
         $agreementDate = $customData['agreement_date'] ?? date('d-m-Y');
 
         // Department head name
-        $deptHead = 'Bikash Pandey';
-        if ($employee->department && $employee->department->head_employee_id) {
-            $headEmp = Employee::find($employee->department->head_employee_id);
-            if ($headEmp) {
-                $deptHead = $headEmp->full_name;
+        $deptHead = $customData['department_head'] ?? null;
+        if (empty($deptHead)) {
+            if ($employee->department && $employee->department->head_employee_id) {
+                $headEmp = Employee::find($employee->department->head_employee_id);
+                if ($headEmp) {
+                    $deptHead = $headEmp->full_name;
+                }
+            }
+            if (empty($deptHead)) {
+                $deptHead = 'Not Assigned';
             }
         }
 
-        $reportingManager = $deptHead;
+        $reportingManager = $customData['reporting_manager'] ?? $deptHead;
 
         return [
             // Employee variables
-            '{{employee.id}}' => $employee->employee_code ?: ('GOS-EMP-' . $codeNum),
-            '{{employee.full_name}}' => $employee->full_name ?: trim($employee->first_name . ' ' . $employee->last_name),
-            '{{employee.first_name}}' => $employee->first_name ?: '',
-            '{{employee.last_name}}' => $employee->last_name ?: '',
-            '{{employee.email}}' => $employee->email ?: '',
-            '{{employee.phone}}' => $employee->phone ?: '',
-            '{{employee.gender}}' => ucfirst($employee->gender ?: 'Male'),
+            '{{employee.id}}' => $customData['employee_id'] ?? ($employee->employee_code ?: ('GOS-EMP-' . $codeNum)),
+            '{{employee.full_name}}' => $customData['full_name'] ?? ($employee->full_name ?: trim($employee->first_name . ' ' . $employee->last_name)),
+            '{{employee.first_name}}' => $customData['first_name'] ?? ($employee->first_name ?: ''),
+            '{{employee.last_name}}' => $customData['last_name'] ?? ($employee->last_name ?: ''),
+            '{{employee.email}}' => $customData['email'] ?? ($employee->email ?: 'Not Provided'),
+            '{{employee.phone}}' => $customData['phone'] ?? ($employee->phone ?: 'Not Provided'),
+            '{{employee.gender}}' => $customData['gender'] ?? ucfirst($employee->gender ?: 'Not Specified'),
             '{{employee.date_of_birth}}' => $dob ?: 'Not Provided',
             '{{employee.citizenship_number}}' => $citizenship ?: 'Not Provided',
-            '{{employee.permanent_address}}' => $employee->permanent_address ?: 'Not Provided',
-            '{{employee.current_address}}' => $employee->current_address ?: ($employee->permanent_address ?: 'Not Provided'),
-            '{{employee.department}}' => $employee->department?->name ?: 'General',
-            '{{employee.designation}}' => $employee->designation?->title ?: 'Software Developer',
-            '{{employee.employment_type}}' => ucwords(str_replace('_', ' ', $employee->employment_type ?: 'full_time')),
+            '{{employee.permanent_address}}' => $customData['permanent_address'] ?? ($employee->permanent_address ?: 'Not Provided'),
+            '{{employee.current_address}}' => $customData['current_address'] ?? ($employee->current_address ?: ($employee->permanent_address ?: 'Not Provided')),
+            '{{employee.department}}' => $customData['department'] ?? ($employee->department?->name ?: 'General'),
+            '{{employee.designation}}' => $customData['designation'] ?? ($employee->designation?->title ?: 'Not Assigned'),
+            '{{employee.employment_type}}' => $customData['employment_type'] ?? ucwords(str_replace('_', ' ', $employee->employment_type ?: 'full_time')),
             '{{employee.joining_date}}' => $joiningDate,
             '{{employee.probation_period}}' => $customData['probation_period'] ?? '3 Months',
             '{{employee.salary}}' => $salaryFormatted,
-            '{{employee.reporting_manager}}' => $customData['reporting_manager'] ?? $reportingManager,
+            '{{employee.reporting_manager}}' => $reportingManager,
             '{{employee.work_location}}' => $customData['work_location'] ?? ($company->city ? $company->city . ' Office' : 'Kathmandu Office'),
             '{{employee.working_schedule}}' => $customData['working_schedule'] ?? '9 AM – 6 PM',
             '{{employee.payment_method}}' => $customData['payment_method'] ?? 'Bank Transfer',
-            '{{employee.bank_name}}' => $employee->bank_name ?: 'Not Provided',
-            '{{employee.bank_account_no}}' => $employee->bank_account_no ?: 'Not Provided',
-            '{{employee.bank_branch}}' => $employee->bank_branch ?: 'Not Provided',
-            '{{employee.emergency_contact_name}}' => $employee->emergency_contact_name ?: 'Not Provided',
-            '{{employee.emergency_contact_phone}}' => $employee->emergency_contact_phone ?: 'Not Provided',
-            '{{employee.emergency_contact_relation}}' => $employee->emergency_contact_relation ?: 'Not Provided',
-            '{{employee.highest_qualification}}' => $customData['highest_qualification'] ?? 'Bachelor’s Degree',
-            '{{employee.institution}}' => $customData['institution'] ?? 'Tribhuvan University',
-            '{{employee.technical_skills}}' => $customData['technical_skills'] ?? 'Web & Application Development, Office Tools',
-            '{{employee.previous_experience}}' => $customData['previous_experience'] ?? '1 Year',
-            '{{employee.previous_organization}}' => $customData['previous_organization'] ?? 'Not Applicable',
-            '{{employee.certifications}}' => $customData['certifications'] ?? 'Professional Certifications',
-            '{{employee.portfolio}}' => $customData['portfolio'] ?? 'https://github.com/',
-            '{{employee.primary_responsibilities}}' => $customData['primary_responsibilities'] ?? 'Develop software applications and maintain company digital systems.',
-            '{{employee.secondary_responsibilities}}' => $customData['secondary_responsibilities'] ?? 'Improve performance, quality assurance and technical documentation.',
-            '{{employee.assigned_projects}}' => $customData['assigned_projects'] ?? 'Gosika Enterprise Systems',
-            '{{employee.performance_targets}}' => $customData['performance_targets'] ?? 'Meet project milestone deadlines with high code quality.',
-            '{{employee.reporting_requirements}}' => $customData['reporting_requirements'] ?? 'Weekly progress report & sprint review.',
-            '{{employee.authorized_system_access}}' => $customData['authorized_system_access'] ?? 'Development Tools, Admin Panel, Internal Communication.',
+            '{{employee.bank_name}}' => $customData['bank_name'] ?? ($employee->bank_name ?: 'Not Provided'),
+            '{{employee.bank_account_no}}' => $customData['bank_account_no'] ?? ($employee->bank_account_no ?: 'Not Provided'),
+            '{{employee.bank_branch}}' => $customData['bank_branch'] ?? ($employee->bank_branch ?: 'Not Provided'),
+            '{{employee.emergency_contact_name}}' => $customData['emergency_contact_name'] ?? ($employee->emergency_contact_name ?: 'Not Provided'),
+            '{{employee.emergency_contact_phone}}' => $customData['emergency_contact_phone'] ?? ($employee->emergency_contact_phone ?: 'Not Provided'),
+            '{{employee.emergency_contact_relation}}' => $customData['emergency_contact_relation'] ?? ($employee->emergency_contact_relation ?: 'Not Provided'),
+            '{{employee.highest_qualification}}' => $customData['highest_qualification'] ?? 'Not Provided',
+            '{{employee.institution}}' => $customData['institution'] ?? 'Not Provided',
+            '{{employee.technical_skills}}' => $customData['technical_skills'] ?? 'Not Provided',
+            '{{employee.previous_experience}}' => $customData['previous_experience'] ?? 'Not Provided',
+            '{{employee.previous_organization}}' => $customData['previous_organization'] ?? 'Not Provided',
+            '{{employee.certifications}}' => $customData['certifications'] ?? 'Not Provided',
+            '{{employee.portfolio}}' => $customData['portfolio'] ?? 'Not Provided',
+            '{{employee.primary_responsibilities}}' => $customData['primary_responsibilities'] ?? 'As assigned by Department Head and Employment Agreement',
+            '{{employee.secondary_responsibilities}}' => $customData['secondary_responsibilities'] ?? 'Adhere to company policies and assist team deliverables',
+            '{{employee.assigned_projects}}' => $customData['assigned_projects'] ?? 'Internal & Client Systems',
+            '{{employee.performance_targets}}' => $customData['performance_targets'] ?? 'Meet deliverables according to project timelines',
+            '{{employee.reporting_requirements}}' => $customData['reporting_requirements'] ?? 'Regular progress reports to supervisor',
+            '{{employee.authorized_system_access}}' => $customData['authorized_system_access'] ?? 'Assigned company tools & workspace access',
             '{{employee.department_head}}' => $deptHead,
             '{{employee.registration_date}}' => $regDate,
 
             // Company variables
             '{{company.name}}' => 'GOSIKA INFOSYS',
             '{{company.tagline}}' => 'Build • Innovate • Grow',
-            '{{company.address}}' => $company->address ?: 'Corporate Tower, Tinkune',
+            '{{company.address}}' => $customData['company_address'] ?? ($company->address ?: 'Kathmandu, Nepal'),
             '{{company.city}}' => $company->city ?: 'Kathmandu',
             '{{company.country}}' => $company->country ?: 'Nepal',
             '{{company.phone}}' => $company->phone ?: '+977-1-4567890',
@@ -193,13 +200,13 @@ class DocumentGenerationService
             '{{company.website}}' => $company->website ?: 'www.gosika.com',
             '{{company.registration_no}}' => $company->registration_no ?: 'REG-284910/080/081',
             '{{company.pan_vat_no}}' => $company->pan_vat_no ?: '612093845',
-            '{{company.authorized_representative}}' => 'Bikash Pandey',
+            '{{company.authorized_representative}}' => $customData['authorized_representative'] ?? ($company->authorized_representative ?? 'Bikash Pandey'),
 
             // Agreement variables
             '{{agreement.number}}' => $bondNumber,
             '{{agreement.date}}' => $agreementDate,
             '{{agreement.effective_date}}' => $joiningDate,
-            '{{hr.representative_name}}' => $customData['hr_representative_name'] ?? 'Sabin Shrestha',
+            '{{hr.representative_name}}' => $customData['hr_representative_name'] ?? 'HR Representative',
         ];
     }
 
@@ -536,14 +543,6 @@ class DocumentGenerationService
                     'designation' => 'Authorized Representative',
                     'has_stamp_box' => true,
                 ],
-                'witness1' => [
-                    'box_title' => 'WITNESS 1',
-                    'default_name' => 'Ramesh Sharma',
-                ],
-                'witness2' => [
-                    'box_title' => 'WITNESS 2',
-                    'default_name' => 'Anita Karki',
-                ],
             ],
             'footer' => [
                 'address' => 'Kathmandu, Nepal',
@@ -608,6 +607,9 @@ class DocumentGenerationService
             'docNumber' => $docNumber,
             'company' => CompanySetting::current(),
             'logoBase64' => $this->getLogoBase64(),
+            'iconBase64' => $this->getIconBase64(),
+            'watermarkBase64' => $this->getWatermarkBase64(),
+            'stampBase64' => $this->getStampBase64(),
         ];
 
         $pdf = $this->pdfService->render('pdf.documents.registration_form', $viewData, 'a4', 'portrait');
@@ -682,6 +684,9 @@ class DocumentGenerationService
             'agreementNumber' => $agreementNumber,
             'company' => CompanySetting::current(),
             'logoBase64' => $this->getLogoBase64(),
+            'iconBase64' => $this->getIconBase64(),
+            'watermarkBase64' => $this->getWatermarkBase64(),
+            'stampBase64' => $this->getStampBase64(),
         ];
 
         $pdf = $this->pdfService->render('pdf.documents.employment_bond', $viewData, 'a4', 'portrait');
@@ -749,11 +754,60 @@ class DocumentGenerationService
             return 'data:' . $mime . ';base64,' . base64_encode($content);
         }
 
-        // Fallback to public SVG or PNG logo
+        // Fallback to public icon or SVG
+        $iconPath = public_path('images/gosika-icon.png');
+        if (file_exists($iconPath)) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($iconPath));
+        }
+
         $svgPath = public_path('gosika-logo.svg');
         if (file_exists($svgPath)) {
             $content = file_get_contents($svgPath);
             return 'data:image/svg+xml;base64,' . base64_encode($content);
+        }
+
+        return '';
+    }
+
+    /**
+     * Get standalone brand icon mark as base64.
+     */
+    public function getIconBase64(): string
+    {
+        $iconPath = public_path('images/gosika-icon.png');
+        if (file_exists($iconPath)) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($iconPath));
+        }
+        return $this->getLogoBase64();
+    }
+
+    /**
+     * Get watermark emblem with baked faint opacity as base64.
+     */
+    public function getWatermarkBase64(): string
+    {
+        $watermarkPath = public_path('images/gosika-watermark.png');
+        if (file_exists($watermarkPath)) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($watermarkPath));
+        }
+        return $this->getIconBase64();
+    }
+
+    /**
+     * Get official circular company stamp as base64.
+     */
+    public function getStampBase64(): string
+    {
+        $company = CompanySetting::current();
+        if ($company->stamp_signature_path && Storage::disk('public')->exists($company->stamp_signature_path)) {
+            $content = Storage::disk('public')->get($company->stamp_signature_path);
+            $mime = Storage::disk('public')->mimeType($company->stamp_signature_path) ?: 'image/png';
+            return 'data:' . $mime . ';base64,' . base64_encode($content);
+        }
+
+        $stampPath = public_path('images/gosika-stamp.png');
+        if (file_exists($stampPath)) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($stampPath));
         }
 
         return '';

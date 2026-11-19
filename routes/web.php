@@ -146,6 +146,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/employee-documents/{document}/preview', [EmployeeDocumentController::class, 'preview'])->name('employee-documents.preview');
     Route::post('/employee-documents/{employee}/regenerate/{type}', [EmployeeDocumentController::class, 'regenerate'])->name('employee-documents.regenerate');
     Route::patch('/employee-documents/{document}/status', [EmployeeDocumentController::class, 'updateStatus'])->name('employee-documents.status');
+    Route::post('/employee-documents/{document}/update-details', [EmployeeDocumentController::class, 'updateDetails'])->name('employee-documents.update-details');
     Route::post('/employee-documents/{document}/upload-signed', [EmployeeDocumentController::class, 'uploadScannedCopy'])->name('employee-documents.upload-signed');
 
     // Document Templates Management (Registration Form, Employment Bond, Custom)
