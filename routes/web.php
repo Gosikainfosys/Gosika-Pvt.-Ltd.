@@ -22,6 +22,8 @@ use App\Http\Controllers\CompanySettingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\VerifyIdController;
+use App\Http\Controllers\DocumentTemplateController;
+use App\Http\Controllers\EmployeeDocumentController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
@@ -133,11 +135,31 @@ Route::middleware('auth')->group(function () {
     Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
     Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
 
-    // Documents
+    // Documents & Physical Document Archives
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+
+    // Official Employee Document Generation & Handling
+    Route::get('/employee-documents/{document}/download', [EmployeeDocumentController::class, 'download'])->name('employee-documents.download');
+    Route::get('/employee-documents/{document}/preview', [EmployeeDocumentController::class, 'preview'])->name('employee-documents.preview');
+    Route::post('/employee-documents/{employee}/regenerate/{type}', [EmployeeDocumentController::class, 'regenerate'])->name('employee-documents.regenerate');
+    Route::patch('/employee-documents/{document}/status', [EmployeeDocumentController::class, 'updateStatus'])->name('employee-documents.status');
+    Route::post('/employee-documents/{document}/upload-signed', [EmployeeDocumentController::class, 'uploadScannedCopy'])->name('employee-documents.upload-signed');
+
+    // Document Templates Management (Registration Form, Employment Bond, Custom)
+    Route::get('/document-templates', [DocumentTemplateController::class, 'index'])->name('document-templates.index');
+    Route::get('/document-templates/create', [DocumentTemplateController::class, 'create'])->name('document-templates.create');
+    Route::post('/document-templates', [DocumentTemplateController::class, 'store'])->name('document-templates.store');
+    Route::get('/document-templates/{document_template}/edit', [DocumentTemplateController::class, 'edit'])->name('document-templates.edit');
+    Route::put('/document-templates/{document_template}', [DocumentTemplateController::class, 'update'])->name('document-templates.update');
+    Route::post('/document-templates/{document_template}/duplicate', [DocumentTemplateController::class, 'duplicate'])->name('document-templates.duplicate');
+    Route::patch('/document-templates/{document_template}/toggle-status', [DocumentTemplateController::class, 'toggleStatus'])->name('document-templates.toggle-status');
+    Route::get('/document-templates/{document_template}/versions', [DocumentTemplateController::class, 'versions'])->name('document-templates.versions');
+    Route::post('/document-templates/{document_template}/versions/{version}/restore', [DocumentTemplateController::class, 'restoreVersion'])->name('document-templates.restore-version');
+    Route::get('/document-templates/{document_template}/preview-pdf', [DocumentTemplateController::class, 'renderLivePdf'])->name('document-templates.preview-pdf');
+    Route::delete('/document-templates/{document_template}', [DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');

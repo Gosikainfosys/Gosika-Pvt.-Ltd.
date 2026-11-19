@@ -115,9 +115,15 @@ class EmployeeController extends Controller
             'status' => 'active',
         ]);
 
-        AuditLog::log('create', 'employees', $employee->id, "Registered new employee: {$employee->full_name} ({$employee->employee_code})");
+        // AUTOMATIC DOCUMENT GENERATION:
+        // Automatically generate 1. Employee Registration Form PDF & 2. Employment Bond Agreement PDF
+        $docService = app(\App\Services\DocumentGenerationService::class);
+        $docService->generateAllDocumentsForEmployee($employee);
 
-        return redirect()->route('employees.show', $employee->id)->with('success', 'Employee registered successfully with generated CR80 ID Card.');
+        AuditLog::log('create', 'employees', $employee->id, "Registered new employee: {$employee->full_name} ({$employee->employee_code}) with generated Registration Form and Employment Bond.");
+
+        return redirect()->route('employees.show', ['employee' => $employee->id, 'tab' => 'employee_documents'])
+            ->with('success', 'Employee registered successfully! Official Employee Registration Form and Employment Bond have been automatically generated.');
     }
 
     public function show(Employee $employee, Request $request, IdCardService $idCardService)
@@ -129,6 +135,7 @@ class EmployeeController extends Controller
         $leaves = LeaveRequest::with('leaveType')->where('employee_id', $employee->id)->latest('start_date')->get();
         $salaries = Salary::where('employee_id', $employee->id)->latest('year')->latest('month')->get();
         $documents = Document::where('employee_id', $employee->id)->latest()->get();
+        $generatedDocuments = $employee->generatedDocuments()->with('template')->get();
         $idCards = EmployeeIdCard::where('employee_id', $employee->id)->latest()->get();
         $auditLogs = AuditLog::where('module', 'employees')->where('record_id', $employee->id)->latest()->get();
 
@@ -140,6 +147,7 @@ class EmployeeController extends Controller
             'leaves' => $leaves,
             'salaries' => $salaries,
             'documents' => $documents,
+            'generatedDocuments' => $generatedDocuments,
             'idCards' => $idCards,
             'auditLogs' => $auditLogs,
             'qrCodeUri' => $qrCodeUri,

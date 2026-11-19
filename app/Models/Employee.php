@@ -123,4 +123,9 @@ class Employee extends Model
     {
         return $this->hasMany(Document::class);
     }
+
+    public function generatedDocuments(): HasMany
+    {
+        return $this->hasMany(GeneratedEmployeeDocument::class)->orderBy('id', 'asc');
+    }
 }

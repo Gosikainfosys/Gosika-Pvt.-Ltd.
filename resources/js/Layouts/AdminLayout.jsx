@@ -23,6 +23,7 @@ import {
     Boxes,
     Truck,
     FolderLock,
+    FileText,
     BarChart3,
     Settings,
     Bell,
@@ -101,6 +102,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
             title: 'DOCUMENTS',
             items: [
                 { name: 'Document Vault', href: '/documents', icon: FolderLock },
+                { name: 'Document Templates', href: '/document-templates', icon: FileText },
             ],
         },
         {

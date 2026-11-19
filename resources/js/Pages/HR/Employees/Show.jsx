@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Badge from '@/Components/Badge';
+import Modal from '@/Components/Modal';
 import {
     ArrowLeft,
     Edit3,
@@ -18,7 +19,15 @@ import {
     Clock,
     Banknote,
     FolderLock,
-    History
+    History,
+    FileText,
+    Eye,
+    RefreshCw,
+    FolderCheck,
+    Upload,
+    CheckCircle2,
+    Archive,
+    ExternalLink
 } from 'lucide-react';
 
 export default function Show({
@@ -27,6 +36,7 @@ export default function Show({
     leaves,
     salaries,
     documents,
+    generatedDocuments = [],
     idCards,
     auditLogs,
     qrCodeUri,
@@ -36,19 +46,88 @@ export default function Show({
     const { company } = usePage().props;
     const companyLocation = [company?.address, company?.city, company?.country].filter(Boolean).join(', ');
 
+    // Modals for Employee Documents handling
+    const [previewDoc, setPreviewDoc] = useState(null);
+    const [statusModalDoc, setStatusModalDoc] = useState(null);
+    const [statusForm, setStatusForm] = useState({
+        status: 'signed',
+        physical_location: '',
+        received_by_hr: '',
+        hr_remarks: '',
+    });
+    const [uploadModalDoc, setUploadModalDoc] = useState(null);
+    const [scannedFile, setScannedFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [regeneratingType, setRegeneratingType] = useState(null);
+
     const tabs = [
         { id: 'personal', name: 'Personal Profile' },
         { id: 'employment', name: 'Employment & Compensation' },
+        { id: 'employee_documents', name: 'Official Documents (Registration & Bond)', count: generatedDocuments?.length || 2 },
         { id: 'idcard', name: 'CR80 ID Card' },
         { id: 'attendance', name: 'Attendance History' },
         { id: 'leave', name: 'Leave Record' },
         { id: 'payroll', name: 'Salary Slips' },
-        { id: 'documents', name: 'Documents' },
+        { id: 'documents', name: 'Document Vault' },
         { id: 'history', name: 'Audit Trail' },
     ];
 
     const handlePrintProfile = () => {
         window.print();
+    };
+
+    const handleOpenStatusModal = (doc) => {
+        setStatusModalDoc(doc);
+        setStatusForm({
+            status: doc.status || 'signed',
+            physical_location: doc.physical_location || '',
+            received_by_hr: doc.received_by_hr || '',
+            hr_remarks: doc.hr_remarks || '',
+        });
+    };
+
+    const handleSaveStatus = (e) => {
+        e.preventDefault();
+        if (!statusModalDoc) return;
+
+        router.patch(`/employee-documents/${statusModalDoc.id}/status`, statusForm, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setStatusModalDoc(null);
+            },
+        });
+    };
+
+    const handleUploadScannedCopy = (e) => {
+        e.preventDefault();
+        if (!uploadModalDoc || !scannedFile) return;
+
+        const formData = new FormData();
+        formData.append('scanned_copy', scannedFile);
+
+        setIsUploading(true);
+        router.post(`/employee-documents/${uploadModalDoc.id}/upload-signed`, formData, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setUploadModalDoc(null);
+                setScannedFile(null);
+                setIsUploading(false);
+            },
+            onError: () => {
+                setIsUploading(false);
+            },
+        });
+    };
+
+    const handleRegenerate = (type) => {
+        if (!confirm(`Are you sure you want to regenerate this document using the latest active template?`)) {
+            return;
+        }
+        setRegeneratingType(type);
+        router.post(`/employee-documents/${employee.id}/regenerate/${type}`, {}, {
+            preserveScroll: true,
+            onFinish: () => setRegeneratingType(null),
+        });
     };
 
     return (
@@ -74,6 +153,17 @@ export default function Show({
                     >
                         <Printer className="h-4 w-4" />
                         <span>Print Profile</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('employee_documents')}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg shadow-2xs transition ${
+                            activeTab === 'employee_documents'
+                                ? 'bg-[#F36B12] text-white shadow-xs'
+                                : 'text-[#F36B12] bg-[#FFF3EB] border border-[#FFD6C0] hover:bg-orange-100'
+                        }`}
+                    >
+                        <FileText className="h-4 w-4" />
+                        <span>Official Documents ({generatedDocuments?.length || 2})</span>
                     </button>
                     <a
                         href={`/employee-id-cards/${employee.id}/pdf`}
@@ -149,13 +239,20 @@ export default function Show({
                         <button
                             key={t.id}
                             onClick={() => setActiveTab(t.id)}
-                            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition whitespace-nowrap ${
+                            className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition whitespace-nowrap flex items-center gap-1.5 ${
                                 activeTab === t.id
                                     ? 'bg-[#FF5500] text-white shadow-2xs'
                                     : 'text-gray-600 hover:bg-gray-100'
                             }`}
                         >
-                            {t.name}
+                            <span>{t.name}</span>
+                            {t.count !== undefined && (
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none ${
+                                    activeTab === t.id ? 'bg-white text-[#FF5500]' : 'bg-orange-100 text-[#FF5500]'
+                                }`}>
+                                    {t.count}
+                                </span>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -383,6 +480,381 @@ export default function Show({
                 </div>
             )}
 
+            {activeTab === 'employee_documents' && (
+                <div className="space-y-6">
+                    {/* Top Notice Banner */}
+                    <div className="bg-gradient-to-r from-[#FFF3EB] via-orange-50 to-white p-5 rounded-2xl border border-[#FFD6C0] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2.5 bg-[#F36B12] text-white rounded-xl shadow-2xs shrink-0">
+                                <FileText className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <h2 className="text-sm font-black text-gray-900 tracking-tight">Official Employee Physical Documents</h2>
+                                    <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-orange-100 text-[#F36B12] rounded-full">
+                                        Corporate HR Records
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-600 leading-relaxed">
+                                    Both documents are dynamically compiled from the employee’s database record into printable A4 PDFs.
+                                    They are physically printed, signed by the employee, company authorized representative, and witnesses, then permanently archived.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={() => handleRegenerate('all')}
+                                disabled={regeneratingType === 'all'}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#F36B12] hover:bg-[#E04B00] rounded-xl shadow-xs transition disabled:opacity-50"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${regeneratingType === 'all' ? 'animate-spin' : ''}`} />
+                                <span>Regenerate Both Documents</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* The 2 Document Cards Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* DOCUMENT A: EMPLOYEE REGISTRATION FORM */}
+                        {(() => {
+                            const doc = generatedDocuments?.find(d => d.document_type === 'registration_form');
+                            const statusVariant = {
+                                generated: 'warning',
+                                printed: 'info',
+                                signed: 'success',
+                                archived: 'neutral',
+                            }[doc?.status || 'generated'] || 'warning';
+
+                            return (
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden flex flex-col justify-between">
+                                    <div className="h-2 bg-gradient-to-r from-[#F36B12] to-[#E94B0B]" />
+                                    
+                                    <div className="p-6 flex-1">
+                                        {/* Card Header */}
+                                        <div className="flex items-start justify-between gap-3 mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#F36B12] font-black shrink-0">
+                                                    A
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-black tracking-wider uppercase text-gray-400 block">DOCUMENT A</span>
+                                                    <h3 className="text-base font-black text-gray-900 leading-tight">Employee Registration Form</h3>
+                                                </div>
+                                            </div>
+
+                                            {doc ? (
+                                                <Badge variant={statusVariant}>
+                                                    {doc.status?.toUpperCase()?.replace('_', ' ')}
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="danger">NOT GENERATED</Badge>
+                                            )}
+                                        </div>
+
+                                        <p className="text-xs text-gray-600 mb-5 leading-relaxed">
+                                            Official corporate dossier covering Personal Demographics, Education & Tech Skills, Employment Terms, Assigned Responsibilities, Documents Checklist, Employee Declaration, and HR Verification.
+                                        </p>
+
+                                        {doc ? (
+                                            <div className="bg-[#F9FAFB] rounded-xl p-4 border border-gray-100 mb-5 space-y-2 text-xs">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Document Number:</span>
+                                                    <span className="font-mono font-bold text-gray-800">{doc.document_number}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Template Version:</span>
+                                                    <span className="font-semibold text-gray-800">Version {doc.version}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Generated On:</span>
+                                                    <span className="font-semibold text-gray-700">{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Today'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">PDF File Size:</span>
+                                                    <span className="font-mono text-gray-600">{doc.file_size_kb} KB</span>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                                                    <span className="text-gray-500 font-medium">Physical Location:</span>
+                                                    <span className="font-semibold text-[#F36B12]">{doc.physical_location || 'Not Recorded Yet'}</span>
+                                                </div>
+                                                {doc.received_by_hr && (
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-500 font-medium">Received By HR:</span>
+                                                        <span className="font-semibold text-gray-800">{doc.received_by_hr}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 mb-5 text-xs text-amber-800">
+                                                This document has not been generated for this employee yet.
+                                            </div>
+                                        )}
+
+                                        {/* Scanned Copy Backup Alert */}
+                                        {doc?.scanned_copy_path && (
+                                            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+                                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                    <span>Physical signed copy uploaded</span>
+                                                </div>
+                                                <a
+                                                    href={`/storage/${doc.scanned_copy_path}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1"
+                                                >
+                                                    <span>View Copy</span>
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Footer Actions */}
+                                    <div className="p-4 bg-gray-50 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                                        {doc ? (
+                                            <>
+                                                <button
+                                                    onClick={() => setPreviewDoc(doc)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Eye className="h-4 w-4 text-[#F36B12]" />
+                                                    <span>Preview A4</span>
+                                                </button>
+
+                                                <a
+                                                    href={`/employee-documents/${doc.id}/download`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#F36B12] bg-[#FFF3EB] border border-[#FFD6C0] hover:bg-orange-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    <span>Download PDF</span>
+                                                </a>
+
+                                                <a
+                                                    href={`/employee-documents/${doc.id}/preview`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Printer className="h-4 w-4" />
+                                                    <span>Print A4</span>
+                                                </a>
+
+                                                <button
+                                                    onClick={() => handleOpenStatusModal(doc)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <FolderCheck className="h-4 w-4" />
+                                                    <span>Status & Filing</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setUploadModalDoc(doc);
+                                                        setScannedFile(null);
+                                                    }}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                    <span>Upload Signed</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleRegenerate('registration_form')}
+                                                    disabled={regeneratingType === 'registration_form'}
+                                                    title="Regenerate PDF using active template"
+                                                    className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-[#F36B12] transition"
+                                                >
+                                                    <RefreshCw className={`h-3.5 w-3.5 ${regeneratingType === 'registration_form' ? 'animate-spin' : ''}`} />
+                                                    <span>Regenerate</span>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleRegenerate('registration_form')}
+                                                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#F36B12] hover:bg-[#E04B00] rounded-lg shadow-xs transition"
+                                            >
+                                                <FileText className="h-4 w-4" />
+                                                <span>Generate Registration Form Now</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* DOCUMENT B: EMPLOYMENT BOND AGREEMENT */}
+                        {(() => {
+                            const doc = generatedDocuments?.find(d => d.document_type === 'employment_bond');
+                            const statusVariant = {
+                                generated: 'warning',
+                                printed: 'info',
+                                signed: 'success',
+                                archived: 'neutral',
+                            }[doc?.status || 'generated'] || 'warning';
+
+                            return (
+                                <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden flex flex-col justify-between">
+                                    <div className="h-2 bg-gradient-to-r from-[#E94B0B] to-[#F36B12]" />
+                                    
+                                    <div className="p-6 flex-1">
+                                        {/* Card Header */}
+                                        <div className="flex items-start justify-between gap-3 mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#E94B0B] font-black shrink-0">
+                                                    B
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] font-black tracking-wider uppercase text-gray-400 block">DOCUMENT B</span>
+                                                    <h3 className="text-base font-black text-gray-900 leading-tight">Employment Bond Agreement</h3>
+                                                </div>
+                                            </div>
+
+                                            {doc ? (
+                                                <Badge variant={statusVariant}>
+                                                    {doc.status?.toUpperCase()?.replace('_', ' ')}
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="danger">NOT GENERATED</Badge>
+                                            )}
+                                        </div>
+
+                                        <p className="text-xs text-gray-600 mb-5 leading-relaxed">
+                                            Official binding agreement governed by Nepal Labour Act 2074. Features 12 clauses covering Confidentiality, IP Rights, Company Property, Conflict of Interest, Exit Notice, and Dual Witness Signatures.
+                                        </p>
+
+                                        {doc ? (
+                                            <div className="bg-[#F9FAFB] rounded-xl p-4 border border-gray-100 mb-5 space-y-2 text-xs">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Bond Reference:</span>
+                                                    <span className="font-mono font-bold text-gray-800">{doc.document_number}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Template Version:</span>
+                                                    <span className="font-semibold text-gray-800">Version {doc.version}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">Agreement Date:</span>
+                                                    <span className="font-semibold text-gray-700">{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Today'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-500 font-medium">PDF File Size:</span>
+                                                    <span className="font-mono text-gray-600">{doc.file_size_kb} KB</span>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                                                    <span className="text-gray-500 font-medium">Physical Location:</span>
+                                                    <span className="font-semibold text-[#E94B0B]">{doc.physical_location || 'Not Recorded Yet'}</span>
+                                                </div>
+                                                {doc.received_by_hr && (
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-500 font-medium">Received By HR:</span>
+                                                        <span className="font-semibold text-gray-800">{doc.received_by_hr}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 mb-5 text-xs text-amber-800">
+                                                This document has not been generated for this employee yet.
+                                            </div>
+                                        )}
+
+                                        {/* Scanned Copy Backup Alert */}
+                                        {doc?.scanned_copy_path && (
+                                            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+                                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                    <span>Physical signed copy uploaded</span>
+                                                </div>
+                                                <a
+                                                    href={`/storage/${doc.scanned_copy_path}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1"
+                                                >
+                                                    <span>View Copy</span>
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Footer Actions */}
+                                    <div className="p-4 bg-gray-50 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                                        {doc ? (
+                                            <>
+                                                <button
+                                                    onClick={() => setPreviewDoc(doc)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Eye className="h-4 w-4 text-[#E94B0B]" />
+                                                    <span>Preview A4</span>
+                                                </button>
+
+                                                <a
+                                                    href={`/employee-documents/${doc.id}/download`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#E94B0B] bg-[#FFF3EB] border border-[#FFD6C0] hover:bg-orange-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    <span>Download PDF</span>
+                                                </a>
+
+                                                <a
+                                                    href={`/employee-documents/${doc.id}/preview`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Printer className="h-4 w-4" />
+                                                    <span>Print A4</span>
+                                                </a>
+
+                                                <button
+                                                    onClick={() => handleOpenStatusModal(doc)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <FolderCheck className="h-4 w-4" />
+                                                    <span>Status & Filing</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        setUploadModalDoc(doc);
+                                                        setScannedFile(null);
+                                                    }}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg shadow-2xs transition"
+                                                >
+                                                    <Upload className="h-4 w-4" />
+                                                    <span>Upload Signed</span>
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleRegenerate('employment_bond')}
+                                                    disabled={regeneratingType === 'employment_bond'}
+                                                    title="Regenerate PDF using active template"
+                                                    className="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-[#E94B0B] transition"
+                                                >
+                                                    <RefreshCw className={`h-3.5 w-3.5 ${regeneratingType === 'employment_bond' ? 'animate-spin' : ''}`} />
+                                                    <span>Regenerate</span>
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleRegenerate('employment_bond')}
+                                                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#E94B0B] hover:bg-[#D44108] rounded-lg shadow-xs transition"
+                                            >
+                                                <FileText className="h-4 w-4" />
+                                                <span>Generate Employment Bond Now</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'attendance' && (
                 <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xs overflow-hidden">
                     <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -462,6 +934,182 @@ export default function Show({
                     </table>
                 </div>
             )}
+
+            {/* MODAL 1: Document Preview Modal */}
+            <Modal
+                isOpen={!!previewDoc}
+                onClose={() => setPreviewDoc(null)}
+                title={previewDoc?.title || 'Document Preview'}
+                maxWidth="max-w-5xl"
+            >
+                {previewDoc && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs">
+                            <div className="flex items-center gap-3">
+                                <span className="font-mono font-bold text-gray-800">{previewDoc.document_number}</span>
+                                <Badge variant={previewDoc.status === 'signed' ? 'success' : 'warning'}>
+                                    {previewDoc.status?.toUpperCase()}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={`/employee-documents/${previewDoc.id}/preview`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100"
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    <span>Open in New Tab</span>
+                                </a>
+                                <a
+                                    href={`/employee-documents/${previewDoc.id}/download`}
+                                    className="inline-flex items-center gap-1 px-3 py-1 bg-[#F36B12] text-white rounded-lg text-xs font-bold hover:bg-[#E04B00]"
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    <span>Download PDF</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-100">
+                            <iframe
+                                src={`/employee-documents/${previewDoc.id}/preview`}
+                                className="w-full h-[70vh]"
+                                title="A4 Document Preview"
+                            />
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* MODAL 2: Physical Status & Filing Reference Modal */}
+            <Modal
+                isOpen={!!statusModalDoc}
+                onClose={() => setStatusModalDoc(null)}
+                title={`Update Physical Status: ${statusModalDoc?.title || ''}`}
+                maxWidth="max-w-lg"
+            >
+                {statusModalDoc && (
+                    <form onSubmit={handleSaveStatus} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">Document Status *</label>
+                            <select
+                                value={statusForm.status}
+                                onChange={(e) => setStatusForm({ ...statusForm, status: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                            >
+                                <option value="generated">Generated (Initial draft created)</option>
+                                <option value="printed">Printed (Physical A4 document printed for signing)</option>
+                                <option value="signed">Physically Signed (Signed by Employee & Company)</option>
+                                <option value="archived">Archived (Stored in physical office filing cabinet)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                                Physical File / Cabinet Reference Location
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Cabinet B, Shelf 3, Folder GSK-001"
+                                value={statusForm.physical_location}
+                                onChange={(e) => setStatusForm({ ...statusForm, physical_location: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">Specify where the signed hard copy is physically located.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">
+                                Received / Verified by HR Officer
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Sabin Shrestha"
+                                value={statusForm.received_by_hr}
+                                onChange={(e) => setStatusForm({ ...statusForm, received_by_hr: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">HR Verification Remarks</label>
+                            <textarea
+                                rows={3}
+                                placeholder="e.g. Verified citizenship copy and physical signatures in order. Stored in employee permanent file."
+                                value={statusForm.hr_remarks}
+                                onChange={(e) => setStatusForm({ ...statusForm, hr_remarks: e.target.value })}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                            />
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setStatusModalDoc(null)}
+                                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-xs font-bold text-white bg-[#F36B12] hover:bg-[#E04B00] rounded-lg shadow-xs transition"
+                            >
+                                Update Filing Record
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+
+            {/* MODAL 3: Upload Scanned Physically Signed Copy Modal */}
+            <Modal
+                isOpen={!!uploadModalDoc}
+                onClose={() => setUploadModalDoc(null)}
+                title={`Upload Scanned Signed Copy: ${uploadModalDoc?.title || ''}`}
+                maxWidth="max-w-md"
+            >
+                {uploadModalDoc && (
+                    <form onSubmit={handleUploadScannedCopy} className="space-y-4">
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 leading-relaxed">
+                            Upload a scanned PDF or photograph of the physically signed original document for digital backup and audit compliance.
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1">Select Scanned File (PDF, JPG, PNG) *</label>
+                            <input
+                                type="file"
+                                accept=".pdf,image/*"
+                                onChange={(e) => setScannedFile(e.target.files[0])}
+                                className="w-full border border-gray-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#F36B12] focus:border-[#F36B12]"
+                                required
+                            />
+                            {scannedFile && (
+                                <p className="text-[11px] text-gray-500 mt-1 font-mono">
+                                    Selected: {scannedFile.name} ({(scannedFile.size / 1024).toFixed(1)} KB)
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setUploadModalDoc(null)}
+                                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isUploading || !scannedFile}
+                                className="px-4 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg shadow-xs transition disabled:opacity-50"
+                            >
+                                {isUploading ? 'Uploading...' : 'Upload Scanned Copy'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
         </AdminLayout>
     );
 }

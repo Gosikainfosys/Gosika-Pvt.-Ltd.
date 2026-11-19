@@ -79,7 +79,7 @@ export default function Create({ departments }) {
                         Employee Registration Form
                     </h1>
                     <p className="text-xs text-[#6B7280]">
-                        Record a new staff member and automatically generate their CR80 ID Card
+                        Record a new staff member and automatically generate their CR80 ID Card, Official Registration Form, and Employment Bond Agreement
                     </p>
                 </div>
             </div>
