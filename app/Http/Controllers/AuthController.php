@@ -43,7 +43,7 @@ class AuthController extends Controller
 
         Password::sendResetLink(['email' => $request->input('email')]);
 
-        return back()->with('status', 'If an administrator account uses that email, a password reset link has been sent.');
+        return back()->with('status', 'If the address matches an administrator account, we’ll send a reset link. Check your inbox and spam folder. If you requested a link recently, wait a minute before trying again.');
     }
 
     public function showResetPassword(Request $request, string $token)
@@ -59,12 +59,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => [
-                'required',
-                'string',
-                PasswordRule::min(12)->mixedCase()->numbers()->symbols(),
-                'confirmed',
-            ],
+            'password' => $this->newPasswordRules(),
         ]);
 
         $status = Password::reset($validated, function (User $user, string $password): void {
@@ -218,12 +213,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => [
-                'required',
-                'string',
-                PasswordRule::min(12)->mixedCase()->numbers()->symbols(),
-                'confirmed',
-            ],
+            'password' => $this->newPasswordRules(),
         ]);
 
         $user = $request->user();
@@ -237,5 +227,15 @@ class AuthController extends Controller
         $user->notify(new PasswordChangedNotification);
 
         return back()->with('success', 'Password updated successfully.');
+    }
+
+    private function newPasswordRules(): array
+    {
+        return [
+            'required',
+            'string',
+            PasswordRule::min(8)->numbers()->symbols()->rules('regex:/[A-Z]/'),
+            'confirmed',
+        ];
     }
 }

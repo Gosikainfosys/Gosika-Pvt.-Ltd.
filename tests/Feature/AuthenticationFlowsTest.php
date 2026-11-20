@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Notifications\AccountEmailChangedNotification;
+use App\Notifications\BrandedPasswordResetNotification;
 use App\Notifications\PasswordChangedNotification;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -34,16 +34,40 @@ class AuthenticationFlowsTest extends TestCase
                 ->component('Auth/ResetPassword')
                 ->where('email', $user->email));
 
+        $statusMessage = 'If the address matches an administrator account, we’ll send a reset link. Check your inbox and spam folder. If you requested a link recently, wait a minute before trying again.';
+
         $this->post(route('password.email'), ['email' => $user->email])
             ->assertRedirect()
-            ->assertSessionHas('status', 'If an administrator account uses that email, a password reset link has been sent.');
+            ->assertSessionHas('status', $statusMessage);
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, BrandedPasswordResetNotification::class);
+        Notification::assertSentTo($user, BrandedPasswordResetNotification::class, function ($notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            $this->assertSame('Reset your password', $mail->subject);
+            $this->assertSame('emails.auth.password-reset', $mail->view['html']);
+            $this->assertSame('emails.auth.password-reset-text', $mail->view['text']);
+            $this->assertStringContainsString('/reset-password/', $mail->viewData['resetUrl']);
+            $this->view($mail->view['html'], $mail->viewData)
+                ->assertSee('Reset password')
+                ->assertSee($mail->viewData['resetUrl'], false);
+
+            $plainText = view($mail->view['text'], $mail->viewData)->render();
+            $this->assertStringContainsString($mail->viewData['resetUrl'], $plainText);
+            $this->assertStringNotContainsString('&amp;', $plainText);
+
+            return true;
+        });
+
+        $this->post(route('password.email'), ['email' => $user->email])
+            ->assertRedirect()
+            ->assertSessionHas('status', $statusMessage);
+        Notification::assertSentToTimes($user, BrandedPasswordResetNotification::class, 1);
 
         $this->post(route('password.email'), ['email' => 'unknown@example.com'])
             ->assertRedirect()
-            ->assertSessionHas('status', 'If an administrator account uses that email, a password reset link has been sent.');
-        Notification::assertSentToTimes($user, ResetPassword::class, 1);
+            ->assertSessionHas('status', $statusMessage);
+        Notification::assertSentToTimes($user, BrandedPasswordResetNotification::class, 1);
     }
 
     public function test_password_reset_token_updates_password_and_sends_security_email(): void
@@ -51,15 +75,24 @@ class AuthenticationFlowsTest extends TestCase
         Notification::fake();
         $user = User::factory()->create();
         $token = Password::createToken($user);
+        $resetUrl = route('password.reset', ['token' => $token, 'email' => $user->email]);
+
+        $this->from($resetUrl)->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'ABCDE1!',
+            'password_confirmation' => 'ABCDE1!',
+        ])->assertRedirect($resetUrl)
+            ->assertSessionHasErrors('password');
 
         $this->post(route('password.update'), [
             'token' => $token,
             'email' => $user->email,
-            'password' => 'NewStrongPassword2026!',
-            'password_confirmation' => 'NewStrongPassword2026!',
+            'password' => 'ABCDEF1!',
+            'password_confirmation' => 'ABCDEF1!',
         ])->assertRedirect(route('login'));
 
-        $this->assertTrue(Hash::check('NewStrongPassword2026!', $user->fresh()->password));
+        $this->assertTrue(Hash::check('ABCDEF1!', $user->fresh()->password));
         Notification::assertSentTo($user, PasswordChangedNotification::class);
     }
 
@@ -67,7 +100,17 @@ class AuthenticationFlowsTest extends TestCase
     {
         Notification::fake();
         $user = User::factory()->create(['password' => Hash::make('OldPassword123!')]);
-        $newPassword = 'NewStrongPassword2026!';
+        $newPassword = 'ABCDEF1!';
+
+        $this->actingAs($user)
+            ->from(route('profile'))
+            ->put(route('profile.password.update'), [
+                'current_password' => 'OldPassword123!',
+                'password' => 'abcdef1!',
+                'password_confirmation' => 'abcdef1!',
+            ])
+            ->assertRedirect(route('profile'))
+            ->assertSessionHasErrors('password');
 
         $this->actingAs($user)
             ->from(route('profile'))

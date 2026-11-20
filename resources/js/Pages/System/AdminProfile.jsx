@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import PasswordRequirements from '@/Components/PasswordRequirements';
 import {
     User,
     Mail,
@@ -368,9 +369,10 @@ export default function AdminProfile() {
                                 form={passwordForm}
                                 show={showNew}
                                 onToggle={() => setShowNew(!showNew)}
-                                placeholder="At least 8 characters"
+                                placeholder="8+ characters, uppercase, number, symbol"
                                 autoComplete="new-password"
                             />
+                            <PasswordRequirements password={passwordForm.data.password} />
                             <PasswordInput
                                 label="Confirm New Password"
                                 name="password_confirmation"
@@ -382,24 +384,6 @@ export default function AdminProfile() {
                             />
 
                             {/* Password strength hint */}
-                            {passwordForm.data.password && (
-                                <div className="space-y-1">
-                                    {[
-                                        { label: 'At least 12 characters', ok: passwordForm.data.password.length >= 12 },
-                                        { label: 'Uppercase and lowercase letters', ok: /[a-z]/.test(passwordForm.data.password) && /[A-Z]/.test(passwordForm.data.password) },
-                                        { label: 'Contains a number', ok: /\d/.test(passwordForm.data.password) },
-                                        { label: 'Contains a symbol', ok: /[^a-zA-Z0-9]/.test(passwordForm.data.password) },
-                                    ].map((rule) => (
-                                        <div key={rule.label} className="flex items-center gap-1.5">
-                                            <div className={`h-1.5 w-1.5 rounded-full ${rule.ok ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                                            <span className={`text-[10px] ${rule.ok ? 'text-emerald-600' : 'text-gray-400'}`}>
-                                                {rule.label}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
                             <div className="pt-1">
                                 <button
                                     type="submit"
@@ -424,8 +408,8 @@ export default function AdminProfile() {
                             <p className="text-xs font-bold text-amber-800 mb-1">Security Recommendations</p>
                             <ul className="space-y-1">
                                 {[
-                                    'Use a strong password with 12+ characters.',
-                                    'Include uppercase, lowercase, numbers, and symbols.',
+                                    'Use a password with at least 8 characters.',
+                                    'Include an uppercase letter, a number, and a symbol.',
                                     'Never share your credentials with anyone.',
                                     'Change your password every 90 days.',
                                 ].map((tip) => (

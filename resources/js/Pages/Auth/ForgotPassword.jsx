@@ -22,7 +22,7 @@ export default function ForgotPassword() {
                         className="h-14 max-w-48 object-contain mx-auto mb-4"
                     />
                     <h1 className="text-2xl font-black text-[#202124]">Reset your password</h1>
-                    <p className="mt-2 text-sm text-gray-500">We’ll email a secure reset link if the address belongs to an administrator account.</p>
+                    <p className="mt-2 text-sm text-gray-500">We’ll email a secure reset link if the address belongs to an administrator account. For security, the confirmation is the same either way.</p>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xl p-6 sm:p-8">

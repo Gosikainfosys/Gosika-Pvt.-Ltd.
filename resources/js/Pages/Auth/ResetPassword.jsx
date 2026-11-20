@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
+import PasswordRequirements from '@/Components/PasswordRequirements';
 
 export default function ResetPassword({ token, email }) {
     const form = useForm({
@@ -22,7 +23,7 @@ export default function ResetPassword({ token, email }) {
                 <div className="text-center mb-8">
                     <img src="/gosika-icon.svg" alt="GOSIKA" className="h-14 w-14 mx-auto mb-4" />
                     <h1 className="text-2xl font-black text-[#202124]">Choose a new password</h1>
-                    <p className="mt-2 text-sm text-gray-500">Use at least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+                    <p className="mt-2 text-sm text-gray-500">Use at least 8 characters with an uppercase letter, a number, and a symbol.</p>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xl p-6 sm:p-8">
@@ -56,6 +57,7 @@ export default function ResetPassword({ token, email }) {
                                 />
                             </div>
                             {form.errors.password && <p className="mt-1 text-xs text-red-600">{form.errors.password}</p>}
+                            <PasswordRequirements password={form.data.password} />
                         </div>
 
                         <div>
