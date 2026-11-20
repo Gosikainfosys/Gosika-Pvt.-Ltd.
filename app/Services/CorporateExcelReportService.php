@@ -114,14 +114,14 @@ class CorporateExcelReportService
             $sheet->mergeCells("{$centerStart}{$rowNum}:{$centerEnd}{$rowNum}");
             $sheet->setCellValueExplicit("{$centerStart}{$rowNum}", $companyLines[$i], DataType::TYPE_STRING);
             $sheet->getStyle("{$centerStart}{$rowNum}")->applyFromArray([
-                'font' => ['name' => 'Calibri', 'size' => 9.5, 'color' => ['rgb' => self::GREY]],
+                'font' => ['name' => 'Calibri', 'size' => 10, 'bold' => false, 'color' => ['rgb' => '374151']],
                 'alignment' => [
                     'vertical'   => Alignment::VERTICAL_CENTER,
                     'horizontal' => Alignment::HORIZONTAL_LEFT,
-                    'wrapText'   => true,
+                    'wrapText'   => false,
                 ],
             ]);
-            $sheet->getRowDimension($rowNum)->setRowHeight(16);
+            $sheet->getRowDimension($rowNum)->setRowHeight(18);
         }
         if ((2 + $companyLineCount) <= $headerEndRow) {
             $remStart = 2 + $companyLineCount;
@@ -330,10 +330,9 @@ class CorporateExcelReportService
         $col2E  = $columnCount;
 
         $baseStyle = [
-            'font'      => ['name' => 'Calibri', 'size' => 8.5, 'color' => ['rgb' => self::GREY]],
+            'font'      => ['name' => 'Calibri', 'size' => 10, 'color' => ['rgb' => '1F2937']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => false],
         ];
-        $boldStyle = array_merge_recursive($baseStyle, ['font' => ['bold' => true, 'color' => ['rgb' => '374151']]]);
 
         $row = 3;
         for ($i = 0; $i < $total; $i += 2) {
@@ -358,7 +357,7 @@ class CorporateExcelReportService
                 $sheet->getStyle("{$c2s}{$row}:{$c2e}{$row}")->applyFromArray($baseStyle);
             }
 
-            $sheet->getRowDimension($row)->setRowHeight(16);
+            $sheet->getRowDimension($row)->setRowHeight(18);
             $row++;
         }
 
@@ -381,9 +380,9 @@ class CorporateExcelReportService
             'fill' => ['fillType' => Fill::FILL_NONE],
         ]);
 
-        // ── Company name: prominent, navy, 18 pt ─────────────────────
+        // ── Company name: prominent, navy, 20 pt ─────────────────────
         $sheet->getStyle("{$companyStart}1:{$companyEnd}1")->applyFromArray([
-            'font' => ['name' => 'Calibri', 'size' => 18, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
+            'font' => ['name' => 'Calibri', 'size' => 20, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
             'alignment' => [
                 'vertical'   => Alignment::VERTICAL_BOTTOM,
                 'horizontal' => Alignment::HORIZONTAL_LEFT,
@@ -391,27 +390,21 @@ class CorporateExcelReportService
             ],
         ]);
 
-        // ── Report title: Gosika orange, 16 pt, right-aligned ────────
+        // ── Report title: Gosika orange, 17 pt, right-aligned ────────
         $sheet->getStyle("{$rightStart}1:{$rightEnd}2")->applyFromArray([
-            'font' => ['name' => 'Calibri', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'font' => ['name' => 'Calibri', 'size' => 17, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_RIGHT,
                 'vertical'   => Alignment::VERTICAL_CENTER,
                 'wrapText'   => true,
-                'indent'     => 1,
             ],
         ]);
 
-        // ── Compact row heights ───────────────────────────────────────
-        // Row 1 hosts company name (18pt) + report title top — 26pt is enough.
-        // Subsequent rows are 16pt: readable but compact.
-        $sheet->getRowDimension(1)->setRowHeight(26);
-        $sheet->getRowDimension(2)->setRowHeight(16);
+        // ── Header row heights ────────────────────────────────────────
+        $sheet->getRowDimension(1)->setRowHeight(30);
+        $sheet->getRowDimension(2)->setRowHeight(18);
         for ($row = 3; $row <= $headerEndRow; $row++) {
-            $h = $sheet->getRowDimension($row)->getRowHeight();
-            if ($h === -1.0 || $h <= 0) {
-                $sheet->getRowDimension($row)->setRowHeight(16);
-            }
+            $sheet->getRowDimension($row)->setRowHeight(18);
         }
 
         // ── Vertical centering for the whole header block ─────────────
@@ -726,10 +719,11 @@ class CorporateExcelReportService
     {
         // Minimum widths to protect the 3-section header layout.
         // Logo columns: at least 14 chars wide each so the logo isn't squeezed.
-        // Center (company info) columns: at least 16 chars wide each.
-        // Right (report info) columns receive whatever is left – they auto-widen.
+        // Center (company info) columns: at least 20 chars wide each so address/details fit.
+        // Right (report metadata) columns: at least 18 chars wide each so 2-col pairs never clip.
         $logoMinWidth   = 14;
-        $centerMinWidth = 16;
+        $centerMinWidth = 20;
+        $rightMinWidth  = 18;
 
         for ($index = 0; $index < $layoutColumnCount; $index++) {
             $letter = $this->columnName($index + 1);
@@ -743,7 +737,8 @@ class CorporateExcelReportService
                 // Center (company info) section: enforce minimum
                 $width = max($centerMinWidth, $dataWidth);
             } else {
-                $width = $dataWidth;
+                // Right (metadata) section: enforce minimum so 2-col metadata never clips
+                $width = max($rightMinWidth, $dataWidth);
             }
 
             $sheet->getColumnDimension($letter)->setWidth($width);
@@ -879,22 +874,22 @@ class CorporateExcelReportService
                 return null;
             }
 
-            // Create a spacious transparent canvas (1400x950) so the watermark repeats gently
-            $cw = 1400;
-            $ch = 950;
+            // Create a transparent canvas (1200x820) covering page from header to footer
+            $cw = 1200;
+            $ch = 820;
             $canvas = imagecreatetruecolor($cw, $ch);
             imagealphablending($canvas, false);
             imagesavealpha($canvas, true);
             $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
             imagefilledrectangle($canvas, 0, 0, $cw, $ch, $transparent);
 
-            // Large watermark size: ~700x700 (preserving aspect ratio)
-            $maxDim = 700;
+            // Large watermark size: ~680x680 (preserving aspect ratio)
+            $maxDim = 680;
             $ratio = min($maxDim / $sw, $maxDim / $sh);
             $tw = max(1, (int) round($sw * $ratio));
             $th = max(1, (int) round($sh * $ratio));
             $dx = (int) (($cw - $tw) / 2);
-            $dy = (int) (($ch - $th) / 2);
+            $dy = 20; // Starts near the top so it is visible behind the transparent header cells
 
             $watermark = imagecreatetruecolor($tw, $th);
             imagealphablending($watermark, false);
