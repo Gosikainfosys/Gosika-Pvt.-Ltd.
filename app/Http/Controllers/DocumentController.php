@@ -7,8 +7,10 @@ use App\Models\Employee;
 use App\Models\Project;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class DocumentController extends Controller
@@ -71,6 +73,12 @@ class DocumentController extends Controller
 
     public function store(Request $request)
     {
+        if ($this->requestExceedsPostMaxSize($request)) {
+            throw ValidationException::withMessages([
+                'file' => 'The upload is larger than the server allows. Choose a file no larger than 10 MB.',
+            ]);
+        }
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'category' => ['required', Rule::in(self::DOCUMENT_CATEGORIES)],
@@ -80,6 +88,9 @@ class DocumentController extends Controller
             'expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,gif,webp', 'max:10240'],
+        ], [
+            'file.uploaded' => 'The upload was interrupted or exceeded the server upload limit. Please retry; if it continues, contact the administrator.',
+            'file.max' => 'The file must not be larger than 10 MB.',
         ]);
 
         $file = $request->file('file');
@@ -88,6 +99,16 @@ class DocumentController extends Controller
         $fileSizeKb = round($file->getSize() / 1024);
 
         $path = $file->store("documents/{$validated['category']}", 'public');
+        if ($path === false) {
+            Log::error('Failed to store uploaded document.', [
+                'category' => $validated['category'],
+                'user_id' => auth()->id(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'file' => 'The server could not save this file. Please retry or contact the administrator.',
+            ]);
+        }
 
         $lastId = Document::max('id') ?? 0;
         $docNumber = 'GSK-DOC-' . date('Y') . '-' . str_pad($lastId + 1, 3, '0', STR_PAD_LEFT);
@@ -111,6 +132,27 @@ class DocumentController extends Controller
         AuditLog::log('create', 'documents', $document->id, "Uploaded document: {$document->title} ({$docNumber})");
 
         return back()->with('success', 'Document archived successfully.');
+    }
+
+    private function requestExceedsPostMaxSize(Request $request): bool
+    {
+        $postMaxBytes = $this->iniSizeToBytes(ini_get('post_max_size') ?: '0');
+        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
+
+        return $postMaxBytes > 0 && $contentLength > $postMaxBytes && $request->all() === [];
+    }
+
+    private function iniSizeToBytes(string $size): int
+    {
+        $value = (int) $size;
+        $unit = strtolower(substr(trim($size), -1));
+
+        return match ($unit) {
+            'g' => $value * 1024 * 1024 * 1024,
+            'm' => $value * 1024 * 1024,
+            'k' => $value * 1024,
+            default => $value,
+        };
     }
 
     public function download(Document $document)

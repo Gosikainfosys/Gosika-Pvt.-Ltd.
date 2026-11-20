@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 const PREVIEWABLE_FILE_TYPES = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
 const CATEGORY_META = {
     '01_COMPANY_LEGAL_DOCUMENTS': { color: 'bg-blue-50 text-blue-700' },
@@ -59,7 +60,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
     const [activeCategory, setActiveCategory] = useState(filters?.category || '');
     const fileRef = useRef();
 
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, progress, errors, reset, clearErrors, setError } = useForm({
         title: '',
         category: '01_COMPANY_LEGAL_DOCUMENTS',
         employee_id: '',
@@ -93,7 +94,19 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
     function handleFileDrop(e) {
         e.preventDefault();
         const file = e.dataTransfer.files[0];
-        if (file) setData('file', file);
+        if (file) selectFile(file);
+    }
+
+    function selectFile(file) {
+        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+            setData('file', null);
+            setError('file', 'Choose a file no larger than 10 MB.');
+            if (fileRef.current) fileRef.current.value = '';
+            return;
+        }
+
+        clearErrors('file');
+        setData('file', file);
     }
 
     function clearSelectedFile() {
@@ -386,7 +399,9 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                     className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-6 text-center hover:border-[#FF5500]/40 transition-colors"
                                 >
                                     <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp" className="hidden"
-                                        onChange={e => setData('file', e.target.files[0])} />
+                                        onChange={e => {
+                                            if (e.target.files[0]) selectFile(e.target.files[0]);
+                                        }} />
                                     {data.file ? (
                                         <div className="flex items-center justify-center gap-3">
                                             {fileIcon(data.file.name.split('.').pop())}
@@ -405,10 +420,31 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                     )}
                                 </div>
                                 {errors.file && <p className="text-red-500 text-xs mt-1">{errors.file}</p>}
+                                {processing && progress && (
+                                    <div className="mt-3" role="status" aria-live="polite">
+                                        <div className="mb-1 flex items-center justify-between text-xs text-gray-600">
+                                            <span>{progress.percentage < 100 ? 'Uploading document…' : 'Finishing upload…'}</span>
+                                            <span>{progress.percentage}%</span>
+                                        </div>
+                                        <div
+                                            role="progressbar"
+                                            aria-label="Document upload progress"
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-valuenow={progress.percentage}
+                                            className="h-2 overflow-hidden rounded-full bg-gray-100"
+                                        >
+                                            <div
+                                                className="h-full rounded-full bg-[#FF5500] transition-[width] duration-200"
+                                                style={{ width: `${progress.percentage}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={closeUpload}
+                            <button type="button" onClick={closeUpload} disabled={processing}
                                 className="px-4 py-2 text-sm border border-[#E5E7EB] rounded-lg hover:bg-gray-50">Cancel</button>
                             <button type="submit" disabled={processing}
                                 className="px-5 py-2 text-sm bg-[#FF5500] text-white rounded-lg hover:bg-orange-600 disabled:opacity-60 transition-colors">

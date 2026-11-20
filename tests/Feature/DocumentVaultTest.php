@@ -63,6 +63,33 @@ class DocumentVaultTest extends TestCase
         Storage::disk('public')->assertExists($document->file_path);
     }
 
+    public function test_upload_reports_a_clear_message_when_php_rejects_the_file(): void
+    {
+        $user = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $file = UploadedFile::fake()->create('oversized.pdf', 1, 'application/pdf');
+        $failedUpload = new UploadedFile(
+            $file->getPathname(),
+            $file->getClientOriginalName(),
+            'application/pdf',
+            UPLOAD_ERR_INI_SIZE,
+            true,
+        );
+
+        $this->actingAs($user)
+            ->from(route('documents.index'))
+            ->post(route('documents.store'), [
+                'title' => 'Rejected document',
+                'category' => self::COMPANY_CATEGORY,
+                'file' => $failedUpload,
+            ])
+            ->assertRedirect(route('documents.index'))
+            ->assertSessionHasErrors([
+                'file' => 'The upload was interrupted or exceeded the server upload limit. Please retry; if it continues, contact the administrator.',
+            ]);
+
+        $this->assertDatabaseCount('documents', 0);
+    }
+
     public function test_legacy_categories_are_not_accepted_for_new_uploads(): void
     {
         $user = User::factory()->create(['role' => 'admin', 'status' => 'active']);
