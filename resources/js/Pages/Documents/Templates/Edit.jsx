@@ -357,7 +357,7 @@ export default function Edit({
                     <Badge variant="neutral">v{template.current_version}</Badge>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                     <Link
                         href={`/document-templates/${template.id}/versions`}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg shadow-2xs transition"
@@ -392,10 +392,10 @@ export default function Edit({
                 {/* LEFT PANE: Editor Controls (5 cols) */}
                 <div className="xl:col-span-5 space-y-4">
                     {/* Navigation Tabs */}
-                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-xs flex items-center gap-1">
+                    <div className="bg-white p-1.5 rounded-2xl border border-gray-200 shadow-xs flex flex-col sm:flex-row items-stretch gap-1">
                         <button
                             onClick={() => setEditorTab('content')}
-                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+                            className={`w-full sm:w-auto sm:flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
                                 editorTab === 'content'
                                     ? 'bg-[#F36B12] text-white shadow-2xs'
                                     : 'text-gray-600 hover:bg-gray-100'
@@ -407,7 +407,7 @@ export default function Edit({
 
                         <button
                             onClick={() => setEditorTab('design')}
-                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+                            className={`w-full sm:w-auto sm:flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
                                 editorTab === 'design'
                                     ? 'bg-[#F36B12] text-white shadow-2xs'
                                     : 'text-gray-600 hover:bg-gray-100'
@@ -419,7 +419,7 @@ export default function Edit({
 
                         <button
                             onClick={() => setEditorTab('variables')}
-                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
+                            className={`w-full sm:w-auto sm:flex-1 py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${
                                 editorTab === 'variables'
                                     ? 'bg-[#F36B12] text-white shadow-2xs'
                                     : 'text-gray-600 hover:bg-gray-100'

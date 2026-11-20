@@ -19,7 +19,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
             <Head title="Administrator Login" />
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">

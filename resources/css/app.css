@@ -65,3 +65,26 @@
         padding: 0 !important;
     }
 }
+
+@media (max-width: 639px) {
+    main table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    main .grid-cols-3,
+    main .grid-cols-4,
+    main .grid-cols-5,
+    main .grid-cols-6,
+    main .grid-cols-8,
+    main .grid-cols-9,
+    main .grid-cols-11 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    main .flex.justify-between,
+    main form.flex {
+        flex-wrap: wrap;
+    }
+}

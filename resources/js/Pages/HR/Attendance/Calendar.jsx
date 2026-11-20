@@ -55,45 +55,49 @@ export default function Calendar({ month, year, monthName, daySummaries, daysInM
                         <ChevronRight className="h-5 w-5" />
                     </button>
                 </div>
-                <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
-                    {weekdays.map((day) => (
-                        <div key={day} className="py-2 text-center text-xs font-bold uppercase tracking-wide text-gray-500">{day}</div>
-                    ))}
-                </div>
-                <div className="grid grid-cols-7">
-                    {Array.from({ length: leadingDays }, (_, index) => (
-                        <div key={`blank-${index}`} className="min-h-24 border-b border-r border-gray-100 bg-gray-50/50 sm:min-h-32" />
-                    ))}
-                    {Array.from({ length: daysInMonth }, (_, index) => {
-                        const day = index + 1;
-                        const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const summary = daySummaries[date];
-                        return (
-                            <div key={date} className="min-h-24 border-b border-r border-gray-100 p-1.5 sm:min-h-32 sm:p-2">
-                                <div className="mb-1 flex items-center justify-between">
-                                    <span className="text-xs font-bold text-gray-800 sm:text-sm">{day}</span>
-                                    {summary && <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[9px] font-bold text-orange-700 sm:text-[10px]">
-                                        {summary.records} {summary.records === 1 ? 'record' : 'records'}
-                                    </span>}
-                                </div>
-                                {summary ? (
-                                    <Link href={`/attendance/history?date=${date}`} className="block rounded-lg border border-gray-100 p-1.5 transition hover:border-orange-200 hover:bg-orange-50/50 sm:p-2">
-                                        <div className="space-y-1">
-                                            {Object.entries(statusLabels).map(([key, label]) => summary[key] > 0 && (
-                                                <div key={key} className="flex items-center justify-between gap-1">
-                                                    <span className={`truncate rounded px-1 py-0.5 text-[9px] font-semibold sm:text-[10px] ${statusStyles[key]}`}>{label}</span>
-                                                    <span className="text-[10px] font-bold text-gray-700">{summary[key]}</span>
-                                                </div>
-                                            ))}
+                <div className="overflow-x-auto">
+                    <div className="min-w-[700px]">
+                        <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
+                            {weekdays.map((day) => (
+                                <div key={day} className="py-2 text-center text-xs font-bold uppercase tracking-wide text-gray-500">{day}</div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7">
+                            {Array.from({ length: leadingDays }, (_, index) => (
+                                <div key={`blank-${index}`} className="min-h-24 border-b border-r border-gray-100 bg-gray-50/50 sm:min-h-32" />
+                            ))}
+                            {Array.from({ length: daysInMonth }, (_, index) => {
+                                const day = index + 1;
+                                const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                const summary = daySummaries[date];
+                                return (
+                                    <div key={date} className="min-h-24 border-b border-r border-gray-100 p-1.5 sm:min-h-32 sm:p-2">
+                                        <div className="mb-1 flex items-center justify-between">
+                                            <span className="text-xs font-bold text-gray-800 sm:text-sm">{day}</span>
+                                            {summary && <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[9px] font-bold text-orange-700 sm:text-[10px]">
+                                                {summary.records} {summary.records === 1 ? 'record' : 'records'}
+                                            </span>}
                                         </div>
-                                        <span className="mt-2 block text-[9px] font-bold text-orange-700 sm:text-[10px]">View history →</span>
-                                    </Link>
-                                ) : (
-                                    <p className="mt-3 text-center text-[10px] text-gray-300">No records</p>
-                                )}
-                            </div>
-                        );
-                    })}
+                                        {summary ? (
+                                            <Link href={`/attendance/history?date=${date}`} className="block rounded-lg border border-gray-100 p-1.5 transition hover:border-orange-200 hover:bg-orange-50/50 sm:p-2">
+                                                <div className="space-y-1">
+                                                    {Object.entries(statusLabels).map(([key, label]) => summary[key] > 0 && (
+                                                        <div key={key} className="flex items-center justify-between gap-1">
+                                                            <span className={`truncate rounded px-1 py-0.5 text-[9px] font-semibold sm:text-[10px] ${statusStyles[key]}`}>{label}</span>
+                                                            <span className="text-[10px] font-bold text-gray-700">{summary[key]}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <span className="mt-2 block text-[9px] font-bold text-orange-700 sm:text-[10px]">View history →</span>
+                                            </Link>
+                                        ) : (
+                                            <p className="mt-3 text-center text-[10px] text-gray-300">No records</p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             </section>
         </AdminLayout>

@@ -63,7 +63,7 @@ export default function VerifyId({ isValid, employee, company }) {
         <div className="min-h-screen bg-gradient-to-br from-[#F7F8FA] via-[#FFF0E8]/30 to-[#F7F8FA] flex flex-col">
             {/* Top bar */}
             <div className="w-full bg-white border-b border-gray-100 shadow-sm">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                             <img
@@ -91,7 +91,7 @@ export default function VerifyId({ isValid, employee, company }) {
                                 <div className="h-14 w-14 rounded-2xl bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center shrink-0">
                                     <CheckCircle2 className="h-8 w-8 text-emerald-600" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-lg font-black text-emerald-700">✓ Identity Verified</p>
                                     <p className="text-xs text-emerald-600 mt-0.5">
                                         This employee's identity has been successfully verified in GOSIKA's official

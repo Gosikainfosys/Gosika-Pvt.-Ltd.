@@ -293,7 +293,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                             </button>
 
                             {notificationsOpen && (
-                                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white shadow-xl border border-gray-100 py-2 z-50">
+                                <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white shadow-xl border border-gray-100 py-2 z-50">
                                     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
                                         <span className="text-xs font-bold text-gray-900">Notifications</span>
                                         <Link href="/notifications" className="text-[11px] font-semibold text-[#FF5500] hover:underline">
@@ -384,18 +384,18 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
 
                 {/* Flash Messages */}
                 {flash?.success && (
-                    <div className="mx-4 sm:mx-6 mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                    <div className="mx-4 sm:mx-6 mt-4 min-w-0 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
+                        <div className="flex min-w-0 items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                            <span>{flash.success}</span>
+                            <span className="break-words">{flash.success}</span>
                         </div>
                     </div>
                 )}
                 {flash?.error && (
-                    <div className="mx-4 sm:mx-6 mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                    <div className="mx-4 sm:mx-6 mt-4 min-w-0 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between">
+                        <div className="flex min-w-0 items-center gap-2">
                             <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                            <span>{flash.error}</span>
+                            <span className="break-words">{flash.error}</span>
                         </div>
                     </div>
                 )}
@@ -406,7 +406,7 @@ export default function AdminLayout({ children, title = 'Dashboard' }) {
                 </main>
 
                 {/* Footer */}
-                <footer className="h-12 border-t border-[#E5E7EB] bg-white px-4 sm:px-6 flex items-center justify-between text-[11px] text-gray-400">
+                <footer className="min-h-12 border-t border-[#E5E7EB] bg-white px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-1 text-[10px] sm:text-[11px] text-gray-400">
                     <div>
                         &copy; {new Date().getFullYear()} <strong>{company?.name || 'GOSIKA Pvt. Ltd.'}</strong> &bull; All Rights Reserved.
                     </div>

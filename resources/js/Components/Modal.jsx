@@ -26,8 +26,8 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = 'ma
             <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
                 <div className={`relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 w-full ${maxWidth} border border-gray-100`}>
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                        <h3 className="text-lg font-bold text-[#202124]">{title}</h3>
+                    <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6">
+                        <h3 className="min-w-0 text-base font-bold text-[#202124] sm:text-lg">{title}</h3>
                         <button
                             type="button"
                             onClick={onClose}
@@ -38,7 +38,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = 'ma
                     </div>
 
                     {/* Content */}
-                    <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto">
+                    <div className="p-4 sm:p-6 max-h-[calc(85vh-100px)] overflow-y-auto">
                         {children}
                     </div>
                 </div>
