@@ -13,6 +13,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Worksheet\HeaderFooter;
+use PhpOffice\PhpSpreadsheet\Worksheet\HeaderFooterDrawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use RuntimeException;
@@ -92,7 +94,8 @@ class CorporateExcelReportService
 
         $metadata = $this->reportMetadata($report['metadata'] ?? [], $settings);
         $companyLines = $this->companyLines($settings['header']);
-        $headerEndRow = max(8, 2 + count($metadata), 1 + count($companyLines));
+        $metaRows = (int) ceil(count($metadata) / 2);
+        $headerEndRow = max(5, 2 + $metaRows, 1 + count($companyLines));
 
         // ── 1. HEADER (3-section layout) ────────────────────────────
         // LEFT: logo placeholder (merged single tall cell)
@@ -139,7 +142,7 @@ class CorporateExcelReportService
             $headerEndRow
         );
         $logo = $this->addLogo($sheet, $settings['logo_path'], $headerEndRow);
-        $this->addWatermark($sheet, $settings['logo_path']);
+        $watermarkTemp = $this->addWatermark($sheet, $settings['logo_path']);
 
         // ── Orange separator: thick bottom border on the last header row ──
         $sheet->getStyle("A{$headerEndRow}:{$layoutLastColumn}{$headerEndRow}")
@@ -219,7 +222,7 @@ class CorporateExcelReportService
         $this->setColumnWidths($sheet, $columns, $layoutColumnCount, $logoColCount, $centerColCount);
 
         return response()->streamDownload(
-            function () use ($spreadsheet, $logo): void {
+            function () use ($spreadsheet, $logo, $watermarkTemp): void {
                 $temporaryWorkbook = tempnam(sys_get_temp_dir(), 'corporate-report-');
                 if ($temporaryWorkbook === false) {
                     if ($logo['temporary_path'] ?? null) {
@@ -241,6 +244,9 @@ class CorporateExcelReportService
                     @unlink($temporaryWorkbook);
                     if ($logo && $logo['temporary_path']) {
                         @unlink($logo['temporary_path']);
+                    }
+                    if ($watermarkTemp) {
+                        @unlink($watermarkTemp);
                     }
                     $spreadsheet->disconnectWorksheets();
                 }
@@ -370,9 +376,9 @@ class CorporateExcelReportService
         string $rightEnd,
         int $headerEndRow
     ): void {
-        // ── Background: clean warm-white across entire header area ───
+        // ── Transparent header background so background logo shows through ──
         $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")->applyFromArray([
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F9FA']],
+            'fill' => ['fillType' => Fill::FILL_NONE],
         ]);
 
         // ── Company name: prominent, navy, 18 pt ─────────────────────
@@ -808,7 +814,7 @@ class CorporateExcelReportService
     /**
      * @return array{drawing_path: string, svg_path: ?string, temporary_path: ?string}|null
      */
-    private function addLogo($sheet, ?string $logoPath, int $headerEndRow = 8): ?array
+    private function addLogo($sheet, ?string $logoPath, int $headerEndRow = 6): ?array
     {
         if (! $logoPath) {
             return null;
@@ -819,8 +825,8 @@ class CorporateExcelReportService
         // Fill the corner space: header block rows 1 to headerEndRow
         $totalHeightPt = 26 + 16 + max(0, $headerEndRow - 2) * 16;
         $totalHeightPx = (int) round($totalHeightPt * (96 / 72));
-        $targetLogoSize = min(140, $totalHeightPx - 16);
-        $offsetY = max(6, (int) round(($totalHeightPx - $targetLogoSize) / 2));
+        $targetLogoSize = min(110, max(60, $totalHeightPx - 18));
+        $offsetY = max(4, (int) round(($totalHeightPx - $targetLogoSize) / 2));
         $offsetX = 14;
 
         $drawing = new Drawing;
@@ -829,25 +835,27 @@ class CorporateExcelReportService
             ->setOffsetX($offsetX)
             ->setOffsetY($offsetY)
             ->setResizeProportional(true)
-            ->setWidthAndHeight(160, $targetLogoSize)   // fills corner space
+            ->setWidthAndHeight(150, $targetLogoSize)   // fills corner space
             ->setWorksheet($sheet);
 
         return $logo;
     }
 
     /**
-     * Apply subtle watermarked corporate logo as the worksheet background.
+     * Apply subtle watermarked corporate logo as the worksheet background (screen) and page header (print).
+     *
+     * @return string|null Path to temporary watermark file if created.
      */
-    private function addWatermark($sheet, ?string $logoPath): void
+    private function addWatermark($sheet, ?string $logoPath): ?string
     {
         if (! $logoPath || ! extension_loaded('gd') || ! file_exists($logoPath)) {
-            return;
+            return null;
         }
 
         try {
             $imageInfo = @getimagesize($logoPath);
             if (! $imageInfo) {
-                return;
+                return null;
             }
 
             $mime = $imageInfo['mime'] ?? '';
@@ -860,7 +868,7 @@ class CorporateExcelReportService
             };
 
             if (! $src) {
-                return;
+                return null;
             }
 
             $sw = imagesx($src);
@@ -868,7 +876,7 @@ class CorporateExcelReportService
             if ($sw <= 10 || $sh <= 10) {
                 // Skip 1x1 test images
                 imagedestroy($src);
-                return;
+                return null;
             }
 
             // Create a spacious transparent canvas (1400x950) so the watermark repeats gently
@@ -916,16 +924,30 @@ class CorporateExcelReportService
             imagedestroy($watermark);
             imagesavealpha($canvas, true);
 
-            ob_start();
-            imagepng($canvas, null, 6);
-            $watermarkData = ob_get_clean();
+            $tmpFile = tempnam(sys_get_temp_dir(), 'wm_') . '.png';
+            imagepng($canvas, $tmpFile, 6);
             imagedestroy($canvas);
 
+            $watermarkData = file_get_contents($tmpFile);
             if ($watermarkData) {
+                // Background for screen view in Excel / WPS Office
                 $sheet->setBackgroundImage($watermarkData);
+
+                // Page setup header drawing so watermark prints in Print / Print Preview / PDF export
+                $hfd = new HeaderFooterDrawing();
+                $hfd->setName('Watermark');
+                $hfd->setPath($tmpFile);
+                $sheet->getHeaderFooter()->addImage($hfd, HeaderFooter::IMAGE_HEADER_CENTER);
+                $existingOdd = $sheet->getHeaderFooter()->getOddHeader();
+                if (! str_contains($existingOdd, '&G')) {
+                    $sheet->getHeaderFooter()->setOddHeader(trim($existingOdd . ' &C&G'));
+                }
             }
+
+            return $tmpFile;
         } catch (\Throwable $e) {
             // Silently ignore watermark generation errors so reports never fail
+            return null;
         }
     }
 

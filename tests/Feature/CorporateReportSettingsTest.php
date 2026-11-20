@@ -224,9 +224,9 @@ class CorporateReportSettingsTest extends TestCase
             $this->assertStringContainsString('Example', $content);
             $this->assertCount(1, $sheet->getDrawingCollection());
             $this->assertNotEmpty($sheet->getMergeCells());
-            $this->assertSame('A16:B17', $sheet->getAutoFilter()->getRange());
-            $this->assertSame('A17', $sheet->getFreezePane());
-            $this->assertSame('A1:F21', $sheet->getPageSetup()->getPrintArea());
+            $this->assertSame('A13:B14', $sheet->getAutoFilter()->getRange());
+            $this->assertSame('A14', $sheet->getFreezePane());
+            $this->assertSame('A1:F18', $sheet->getPageSetup()->getPrintArea());
 
             $workbook->disconnectWorksheets();
 
