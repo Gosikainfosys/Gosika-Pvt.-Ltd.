@@ -13,8 +13,9 @@ import {
     FileText
 } from 'lucide-react';
 
-export default function Index({ incomes, categories, filters }) {
+export default function Index({ incomes, categories = [], filters }) {
     const [modalOpen, setModalOpen] = useState(false);
+    const [showCategoryForm, setShowCategoryForm] = useState(false);
     const [search, setSearch] = useState(filters.search || '');
     const [categoryId, setCategoryId] = useState(filters.category_id || '');
 
@@ -30,6 +31,13 @@ export default function Index({ incomes, categories, filters }) {
         receipt: null,
     });
 
+    const categoryForm = useForm({
+        type: 'income',
+        name: '',
+        code: '',
+        description: '',
+    });
+
     const handleFilter = (e) => {
         e.preventDefault();
         router.get('/finance/income', { search, category_id: categoryId }, { preserveState: true });
@@ -41,6 +49,26 @@ export default function Index({ incomes, categories, filters }) {
             onSuccess: () => {
                 form.reset();
                 setModalOpen(false);
+            },
+        });
+    };
+
+    const handleCreateCategory = () => {
+        categoryForm.post('/finance/categories', {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const createdCategory = page.props.categories?.find(
+                    (category) => category.code === categoryForm.data.code
+                );
+
+                if (!createdCategory) {
+                    categoryForm.setError('code', 'Category was created, but could not be selected. Refresh the page and choose it from the list.');
+                    return;
+                }
+
+                form.setData('category_id', String(createdCategory.id));
+                categoryForm.reset();
+                setShowCategoryForm(false);
             },
         });
     };
@@ -61,7 +89,10 @@ export default function Index({ incomes, categories, filters }) {
                 </div>
                 <div>
                     <button
-                        onClick={() => setModalOpen(true)}
+                        onClick={() => {
+                            setShowCategoryForm(categories.length === 0);
+                            setModalOpen(true);
+                        }}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition"
                     >
                         <Plus className="h-4 w-4" />
@@ -176,17 +207,30 @@ export default function Index({ incomes, categories, filters }) {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1">Category *</label>
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                                <label className="block text-xs font-bold text-gray-700">Category *</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCategoryForm((visible) => !visible)}
+                                    className="text-[10px] font-bold text-[#FF5500] hover:underline"
+                                >
+                                    {showCategoryForm ? 'Cancel' : '+ Add category'}
+                                </button>
+                            </div>
                             <select
                                 required
                                 value={form.data.category_id}
                                 onChange={(e) => form.setData('category_id', e.target.value)}
                                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#FF5500]"
                             >
+                                <option value="">Select an income category</option>
                                 {categories.map((c) => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                            {form.errors.category_id && (
+                                <p className="mt-1 text-[10px] text-red-600">{form.errors.category_id}</p>
+                            )}
                         </div>
 
                         <div>
@@ -202,6 +246,50 @@ export default function Index({ incomes, categories, filters }) {
                             />
                         </div>
                     </div>
+
+                    {showCategoryForm && (
+                        <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+                            <p className="mb-2 text-xs font-bold text-gray-800">Add an income category</p>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label className="mb-1 block text-[10px] font-bold text-gray-700">Category name *</label>
+                                    <input
+                                        type="text"
+                                        maxLength={255}
+                                        value={categoryForm.data.name}
+                                        onChange={(e) => categoryForm.setData('name', e.target.value)}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs focus:ring-1 focus:ring-[#FF5500]"
+                                    />
+                                    {categoryForm.errors.name && (
+                                        <p className="mt-1 text-[10px] text-red-600">{categoryForm.errors.name}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-[10px] font-bold text-gray-700">Short code *</label>
+                                    <input
+                                        type="text"
+                                        maxLength={10}
+                                        value={categoryForm.data.code}
+                                        onChange={(e) => categoryForm.setData('code', e.target.value.toUpperCase())}
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-[#FF5500]"
+                                    />
+                                    {categoryForm.errors.code && (
+                                        <p className="mt-1 text-[10px] text-red-600">{categoryForm.errors.code}</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="mt-3 flex justify-end">
+                                <button
+                                    type="button"
+                                    disabled={categoryForm.processing || !categoryForm.data.name.trim() || !categoryForm.data.code.trim()}
+                                    onClick={handleCreateCategory}
+                                    className="rounded-lg bg-[#FF5500] px-3 py-2 text-[10px] font-bold text-white hover:bg-[#E04B00] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {categoryForm.processing ? 'Adding...' : 'Add and select category'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-3 gap-3">
                         <div>

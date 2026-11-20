@@ -10,6 +10,7 @@ use App\Models\CompanySetting;
 use App\Models\AuditLog;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -349,7 +350,15 @@ class FinanceController extends Controller
         $validated = $request->validate([
             'type' => ['required', 'in:income,expense'],
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:10'],
+            'code' => [
+                'required',
+                'string',
+                'max:10',
+                Rule::unique(
+                    $request->input('type') === 'income' ? 'income_categories' : 'expense_categories',
+                    'code'
+                ),
+            ],
             'monthly_budget' => ['nullable', 'numeric'],
             'description' => ['nullable', 'string'],
         ]);
