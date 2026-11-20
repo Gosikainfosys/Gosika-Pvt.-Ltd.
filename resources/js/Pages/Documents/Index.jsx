@@ -60,6 +60,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
     const [search, setSearch] = useState(filters?.search || '');
     const [activeCategory, setActiveCategory] = useState(filters?.category || '');
     const fileRef = useRef();
+    const activeCategoryDetails = categories.find((category) => category.value === activeCategory);
 
     const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm({
         title: '',
@@ -186,7 +187,11 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-4 py-3 border-b border-[#E5E7EB]">
                         <div>
                             <h2 className="text-sm font-semibold text-[#202124]">Folder structure</h2>
-                            <p className="text-xs text-gray-500">Choose a folder to view its documents.</p>
+                            <p className="text-xs text-gray-500">
+                                {activeCategoryDetails
+                                    ? activeCategoryDetails.description
+                                    : 'Choose a folder to view its documents.'}
+                            </p>
                         </div>
                         {activeCategory && (
                             <button type="button" onClick={() => applyFilter('')}
@@ -202,13 +207,23 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                             const count = stats.categories?.[category.value] || 0;
                             return (
                                 <button type="button" key={category.value} aria-pressed={selected}
-                                    title={category.label} onClick={() => applyFilter(category.value)}
+                                    title={`${category.label}\n${category.description}`} onClick={() => applyFilter(category.value)}
                                     className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-[#FF5500] bg-orange-50/40 ring-1 ring-[#FF5500]/20' : 'border-[#E5E7EB] hover:border-gray-300 hover:bg-gray-50'}`}>
                                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${meta.color}`}>
                                         {selected ? <FolderOpen size={19} /> : <Folder size={19} />}
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-xs font-semibold text-[#202124] [overflow-wrap:anywhere]">{category.label}</span>
+                                        <span
+                                            className="mt-1 block overflow-hidden text-[11px] leading-4 text-gray-500"
+                                            style={{
+                                                display: '-webkit-box',
+                                                WebkitBoxOrient: 'vertical',
+                                                WebkitLineClamp: 2,
+                                            }}
+                                        >
+                                            {category.description}
+                                        </span>
                                         <span className="mt-1 block text-xs text-gray-500">{count} {count === 1 ? 'document' : 'documents'}</span>
                                     </span>
                                     <ChevronRight size={16} className="shrink-0 text-gray-400" />

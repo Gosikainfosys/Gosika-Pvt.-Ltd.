@@ -16,20 +16,6 @@ use Inertia\Inertia;
 
 class DocumentController extends Controller
 {
-    private const DOCUMENT_CATEGORIES = [
-        '01_COMPANY_LEGAL_DOCUMENTS',
-        '02_HUMAN_RESOURCES_HR',
-        '03_FINANCE_ACCOUNTING',
-        '04_ADMINISTRATION_OFFICE',
-        '05_MARKETPLACE_OPERATIONS_GOSIKA',
-        '06_SOFTWARE_PROJECTS',
-        '07_TECHNICAL_IT_OPERATIONS',
-        '08_MARKETING_BRANDING',
-        '09_PROJECT_REPORTS_MANAGEMENT',
-        '10_TEMPLATES_MASTER_FILES',
-        '11_ARCHIVE_OLD_RECORDS',
-    ];
-
     public function index(Request $request)
     {
         $category = $request->input('category');
@@ -64,10 +50,13 @@ class DocumentController extends Controller
             'employees' => $employees,
             'projects' => $projects,
             'stats' => $stats,
-            'categories' => array_map(
-                fn ($category) => ['value' => $category, 'label' => $category],
-                self::DOCUMENT_CATEGORIES,
-            ),
+            'categories' => collect(config('document_categories', []))
+                ->map(fn ($description, $category) => [
+                    'value' => $category,
+                    'label' => $category,
+                    'description' => $description,
+                ])
+                ->values(),
             'filters' => $request->only(['category', 'search']),
         ]);
     }
@@ -89,7 +78,7 @@ class DocumentController extends Controller
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'category' => ['required', Rule::in(self::DOCUMENT_CATEGORIES)],
+            'category' => ['required', Rule::in(array_keys(config('document_categories', [])))],
             'employee_id' => ['nullable', 'exists:employees,id'],
             'project_id' => ['nullable', 'exists:projects,id'],
             'issue_date' => ['nullable', 'date'],
