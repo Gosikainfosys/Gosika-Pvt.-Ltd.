@@ -447,7 +447,7 @@ class CorporateExcelReportService
             $valueColor = $isFinancial ? self::ORANGE : self::NAVY;
 
             $sheet->getStyle("{$start}{$labelRow}:{$end}{$valueEndRow}")->applyFromArray([
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::LIGHT_ORANGE]],
+                'fill' => ['fillType' => Fill::FILL_NONE],
                 'borders' => [
                     'outline' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'F2C6AE']],
                     'top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => self::ORANGE]],
@@ -524,7 +524,7 @@ class CorporateExcelReportService
             }
             $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                 'font' => ['name' => 'Arial', 'size' => 9.5, 'color' => ['rgb' => self::NAVY]],
-                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $fillColor]],
+                'fill' => ['fillType' => Fill::FILL_NONE],
                 'borders' => [
                     'allBorders' => ['borderStyle' => Border::BORDER_HAIR, 'color' => ['rgb' => 'D9DDE2']],
                 ],
@@ -579,7 +579,7 @@ class CorporateExcelReportService
         $lastColumn = $this->columnName(count($columns));
         $sheet->getStyle("A{$row}:{$lastColumn}{$row}")->applyFromArray([
             'font' => ['name' => 'Arial', 'size' => 10.5, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::LIGHT_ORANGE]],
+            'fill' => ['fillType' => Fill::FILL_NONE],
             'borders' => [
                 'top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => self::ORANGE]],
                 'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => self::ORANGE]],
@@ -698,6 +698,7 @@ class CorporateExcelReportService
             ->setFitToHeight(0)
             ->setFitToPage(true)
             ->setHorizontalCentered(true)
+            ->setVerticalCentered(true)
             ->setRowsToRepeatAtTop([$headerRow, $headerRow]);
         $sheet->getPageMargins()
             ->setTop(0.35)
@@ -874,22 +875,22 @@ class CorporateExcelReportService
                 return null;
             }
 
-            // Create a transparent canvas (1200x820) covering page from header to footer
-            $cw = 1200;
-            $ch = 820;
+            // Target canvas for A4 landscape page (1100 x 800)
+            $cw = 1100;
+            $ch = 800;
             $canvas = imagecreatetruecolor($cw, $ch);
             imagealphablending($canvas, false);
             imagesavealpha($canvas, true);
             $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
             imagefilledrectangle($canvas, 0, 0, $cw, $ch, $transparent);
 
-            // Large watermark size: ~680x680 (preserving aspect ratio)
-            $maxDim = 680;
+            // Watermark size: ~560x560 (centered dead in the middle of the sheet)
+            $maxDim = 560;
             $ratio = min($maxDim / $sw, $maxDim / $sh);
             $tw = max(1, (int) round($sw * $ratio));
             $th = max(1, (int) round($sh * $ratio));
             $dx = (int) (($cw - $tw) / 2);
-            $dy = 20; // Starts near the top so it is visible behind the transparent header cells
+            $dy = (int) (($ch - $th) / 2);
 
             $watermark = imagecreatetruecolor($tw, $th);
             imagealphablending($watermark, false);

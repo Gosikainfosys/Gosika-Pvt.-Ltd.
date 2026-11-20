@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Tests\TestCase;
 
@@ -329,9 +330,9 @@ class CorporateExcelReportsTest extends TestCase
         $this->assertSame('202124', strtoupper($headerStyle->getFill()->getStartColor()->getRGB()));
         $this->assertSame('FFFFFF', strtoupper($headerStyle->getFont()->getColor()->getRGB()));
         $this->assertSame('FF5500', strtoupper($headerStyle->getBorders()->getBottom()->getColor()->getRGB()));
-        $this->assertSame('FFFFFF', strtoupper($sheet->getStyle('A'.($headerRow + 1))->getFill()->getStartColor()->getRGB()));
+        $this->assertSame(Fill::FILL_NONE, $sheet->getStyle('A'.($headerRow + 1))->getFill()->getFillType());
         if ($lastFilteredRow >= $headerRow + 2) {
-            $this->assertSame('F7F8FA', strtoupper($sheet->getStyle('A'.($headerRow + 2))->getFill()->getStartColor()->getRGB()));
+            $this->assertSame(Fill::FILL_NONE, $sheet->getStyle('A'.($headerRow + 2))->getFill()->getFillType());
         }
         $this->assertNotNull($sheet->getFreezePane());
         $this->assertSame(PageSetup::PAPERSIZE_A4, $sheet->getPageSetup()->getPaperSize());
@@ -372,8 +373,8 @@ class CorporateExcelReportsTest extends TestCase
             $value = $sheet->getCell($cell->getColumn().($cell->getRow() + 1))->getValue();
             $this->assertEqualsWithDelta($expectedValue, (float) $value, 0.01, "Incorrect {$label} summary card.");
             $this->assertSame(
-                'FFF0E8',
-                strtoupper($sheet->getStyle($coordinate)->getFill()->getStartColor()->getRGB())
+                Fill::FILL_NONE,
+                $sheet->getStyle($coordinate)->getFill()->getFillType()
             );
 
             return;
