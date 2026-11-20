@@ -110,13 +110,14 @@ class FinanceController extends Controller
             strtoupper($income->status),
         ])->all();
 
-        $metadata = [];
+        $metadata = ['Report Ref.' => 'GSK-INC-RPT-'.date('Ymd-His')];
         if ($request->filled('category_id')) {
             $metadata['Category'] = IncomeCategory::whereKey($request->input('category_id'))->value('name');
         }
         if ($request->filled('search')) {
-            $metadata['Search'] = $request->input('search');
+            $metadata['Search Filter'] = $request->input('search');
         }
+        $metadata['Records'] = $incomes->count().' entries';
 
         AuditLog::log('export', 'incomes', null, 'Exported Corporate Income Report XLSX');
 
@@ -136,11 +137,12 @@ class FinanceController extends Controller
             ],
             'rows' => $rows,
             'summary' => [
-                ['label' => 'Income Entries', 'value' => $incomes->count(), 'format' => 'number'],
+                ['label' => 'Income Entries', 'value' => $incomes->count(), 'format' => 'integer'],
                 ['label' => 'Completed Income', 'value' => (float) $incomes->where('status', 'completed')->sum('amount'), 'format' => 'currency'],
                 ['label' => 'Pending Income', 'value' => (float) $incomes->where('status', 'pending')->sum('amount'), 'format' => 'currency'],
+                ['label' => 'Total Income', 'value' => (float) $incomes->sum('amount'), 'format' => 'currency'],
             ],
-            'totals' => ['label' => 'TOTAL INCOME', 'formulas' => [6 => 'sum']],
+            'totals' => ['label' => 'GRAND TOTAL INCOME', 'formulas' => [6 => 'sum']],
             'signatures' => true,
             'orientation' => 'landscape',
         ]);
@@ -291,7 +293,11 @@ class FinanceController extends Controller
         return $reportService->download([
             'filename' => 'expense_audit_report.xlsx',
             'title' => 'Corporate Expense Audit Statement',
-            'metadata' => ['Date Range' => $data['dateRange']],
+            'metadata' => [
+                'Report Ref.' => 'GSK-EXP-RPT-'.date('Ymd-His'),
+                'Date Range' => $data['dateRange'],
+                'Records' => $data['expenses']->count().' entries',
+            ],
             'columns' => [
                 ['label' => 'Expense Voucher', 'width' => 20],
                 ['label' => 'Date', 'format' => 'date', 'width' => 15],
@@ -305,13 +311,13 @@ class FinanceController extends Controller
             ],
             'rows' => $rows,
             'summary' => [
-                ['label' => 'Expense Entries', 'value' => $data['expenses']->count(), 'format' => 'number'],
+                ['label' => 'Expense Entries', 'value' => $data['expenses']->count(), 'format' => 'integer'],
                 ['label' => 'Cumulative Expenses Audited', 'value' => (float) $data['totalAmount'], 'format' => 'currency'],
-                ['label' => 'Expense Categories', 'value' => $data['expenses']->pluck('category.name')->filter()->unique()->count(), 'format' => 'number'],
+                ['label' => 'Expense Categories', 'value' => $data['expenses']->pluck('category.name')->filter()->unique()->count(), 'format' => 'integer'],
                 ['label' => 'Paid Amount', 'value' => (float) $data['expenses']->where('status', 'paid')->sum('amount'), 'format' => 'currency'],
                 ['label' => 'Outstanding Amount', 'value' => (float) $data['expenses']->where('status', 'pending')->sum('amount'), 'format' => 'currency'],
             ],
-            'totals' => ['label' => 'TOTAL EXPENSES', 'formulas' => [8 => 'sum']],
+            'totals' => ['label' => 'GRAND TOTAL EXPENSES', 'formulas' => [8 => 'sum']],
             'signatures' => true,
             'orientation' => 'landscape',
         ]);
@@ -426,7 +432,11 @@ class FinanceController extends Controller
         return $reportService->download([
             'filename' => "financial_statement_{$period}.xlsx",
             'title' => 'Statement of Income & Expenditure',
-            'metadata' => ['Reporting Period' => $data['periodName']],
+            'metadata' => [
+                'Report Ref.' => 'GSK-FIN-RPT-'.date('Ymd-His'),
+                'Reporting Period' => $data['periodName'],
+                'Records' => $data['transactions']->count().' transactions',
+            ],
             'columns' => [
                 ['label' => 'Type', 'width' => 16],
                 ['label' => 'Transaction Reference', 'width' => 23],

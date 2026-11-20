@@ -83,20 +83,34 @@ class CorporateExcelReportService
         $companyLines = $this->companyLines($settings['header']);
         $headerEndRow = max(6, 2 + count($metadata), 1 + count($companyLines));
 
+        // ── 1. HEADER (3-column layout) ─────────────────────────────
         $sheet->mergeCells("A1:{$this->columnName($companyColumnCount)}{$headerEndRow}");
         $sheet->mergeCells("{$companyStart}1:{$companyEnd}1");
-        $sheet->mergeCells("{$companyStart}2:{$companyEnd}{$headerEndRow}");
         $sheet->mergeCells("{$rightStart}1:{$rightEnd}2");
 
         $companyName = $settings['header']['company_name'] ?? null;
         if (filled($companyName)) {
             $sheet->setCellValueExplicit("{$companyStart}1", $companyName, DataType::TYPE_STRING);
         }
-        $sheet->setCellValueExplicit(
-            "{$companyStart}2",
-            implode("\n", $companyLines),
-            DataType::TYPE_STRING
-        );
+
+        // Write each company info line on its own row for crystal-clear readability
+        $companyLineCount = count($companyLines);
+        for ($i = 0; $i < $companyLineCount && ($i + 2) <= $headerEndRow; $i++) {
+            $rowNum = $i + 2;
+            $sheet->mergeCells("{$companyStart}{$rowNum}:{$companyEnd}{$rowNum}");
+            $sheet->setCellValueExplicit("{$companyStart}{$rowNum}", $companyLines[$i], DataType::TYPE_STRING);
+            $sheet->getStyle("{$companyStart}{$rowNum}")->applyFromArray([
+                'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::GREY]],
+                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'horizontal' => Alignment::HORIZONTAL_LEFT],
+            ]);
+            $sheet->getRowDimension($rowNum)->setRowHeight(18);
+        }
+        // If remaining rows exist in center column, merge them
+        if ((2 + $companyLineCount) <= $headerEndRow) {
+            $remStart = 2 + $companyLineCount;
+            $sheet->mergeCells("{$companyStart}{$remStart}:{$companyEnd}{$headerEndRow}");
+        }
+
         $sheet->setCellValueExplicit("{$rightStart}1", mb_strtoupper($title), DataType::TYPE_STRING);
 
         $this->writeMetadata($sheet, $metadata, $rightStartNumber, $layoutColumnCount);
@@ -112,6 +126,7 @@ class CorporateExcelReportService
         $sheet->getStyle("A1:{$layoutLastColumn}{$headerEndRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM)->getColor()->setRGB(self::ORANGE);
 
+        // ── 2. SUMMARY KPI CARDS ────────────────────────────────────
         $currentRow = $headerEndRow + 2;
         if ($summary !== []) {
             $summaryTitleRow = $currentRow;
@@ -130,6 +145,7 @@ class CorporateExcelReportService
             $currentRow = $valueEndRow + 2;
         }
 
+        // ── 3. DATA TABLE ───────────────────────────────────────────
         $tableTitleRow = $currentRow;
         $sheet->mergeCells("A{$tableTitleRow}:{$layoutLastColumn}{$tableTitleRow}");
         $sheet->setCellValueExplicit("A{$tableTitleRow}", 'REPORT DETAILS', DataType::TYPE_STRING);
@@ -145,6 +161,7 @@ class CorporateExcelReportService
         $this->writeTable($sheet, $columns, $rows, $headerRow, $firstDataRow, $lastDataRow, $settings);
         $lastContentRow = $lastDataRow;
 
+        // ── 4. TOTALS ───────────────────────────────────────────────
         if (! empty($report['totals']['formulas'])) {
             $lastContentRow = $this->writeTotals(
                 $sheet,
@@ -157,6 +174,7 @@ class CorporateExcelReportService
             );
         }
 
+        // ── 5. SIGNATURES ───────────────────────────────────────────
         if (! empty($report['signatures'])) {
             $lastContentRow = $this->writeSignatures(
                 $sheet,
@@ -166,7 +184,10 @@ class CorporateExcelReportService
             );
         }
 
+        // ── 6. FOOTER ───────────────────────────────────────────────
         $lastContentRow = $this->writeFooter($sheet, $settings['footer'], $lastContentRow + 2, $layoutLastColumn);
+
+        // ── 7. PRINT SETUP & COLUMN WIDTHS ──────────────────────────
         $this->configurePrintLayout(
             $sheet,
             $report,
@@ -275,11 +296,12 @@ class CorporateExcelReportService
             $sheet->getStyle("{$start}{$row}:{$end}{$row}")->applyFromArray([
                 'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::GREY]],
                 'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_RIGHT,
                     'vertical' => Alignment::VERTICAL_CENTER,
                     'wrapText' => true,
                 ],
             ]);
-            $sheet->getRowDimension($row)->setRowHeight(17);
+            $sheet->getRowDimension($row)->setRowHeight(18);
             $row++;
         }
     }
@@ -293,25 +315,21 @@ class CorporateExcelReportService
         int $headerEndRow
     ): void {
         $sheet->getStyle("{$companyStart}1:{$companyEnd}1")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 18, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
+            'font' => ['name' => 'Arial', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
         ]);
-        $sheet->getStyle("{$companyStart}2:{$companyEnd}{$headerEndRow}")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::GREY]],
-            'alignment' => ['vertical' => Alignment::VERTICAL_TOP, 'wrapText' => true],
-        ]);
         $sheet->getStyle("{$rightStart}1:{$rightEnd}2")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'font' => ['name' => 'Arial', 'size' => 15, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_RIGHT,
                 'vertical' => Alignment::VERTICAL_CENTER,
                 'wrapText' => true,
             ],
         ]);
-        $sheet->getRowDimension(1)->setRowHeight(30);
-        $sheet->getRowDimension(2)->setRowHeight(24);
+        $sheet->getRowDimension(1)->setRowHeight(28);
+        $sheet->getRowDimension(2)->setRowHeight(20);
         for ($row = 3; $row <= $headerEndRow; $row++) {
-            if ($sheet->getRowDimension($row)->getRowHeight() === -1) {
+            if ($sheet->getRowDimension($row)->getRowHeight() === -1.0 || $sheet->getRowDimension($row)->getRowHeight() <= 0) {
                 $sheet->getRowDimension($row)->setRowHeight(18);
             }
         }
@@ -343,6 +361,12 @@ class CorporateExcelReportService
             $sheet->mergeCells("{$start}{$valueStartRow}:{$end}{$valueEndRow}");
             $sheet->setCellValueExplicit("{$start}{$labelRow}", mb_strtoupper($card['label']), DataType::TYPE_STRING);
             $this->setFormattedValue($sheet, "{$start}{$valueStartRow}", $card['value'], $card['format'] ?? 'text', $settings);
+
+            // Highlight financial figures in Gosika Orange, counts in Navy
+            $isFinancial = in_array($card['format'] ?? 'text', ['currency', 'decimal'], true)
+                || preg_match('/(total|amount|valuation|expenses|income|payroll|revenue|salary)/i', $card['label']);
+            $valueColor = $isFinancial ? self::ORANGE : self::NAVY;
+
             $sheet->getStyle("{$start}{$labelRow}:{$end}{$valueEndRow}")->applyFromArray([
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::LIGHT_ORANGE]],
                 'borders' => [
@@ -355,10 +379,10 @@ class CorporateExcelReportService
                     'wrapText' => true,
                 ],
             ]);
-            $sheet->getStyle("{$start}{$labelRow}")->getFont()->setName('Arial')->setSize(9)->setBold(true)
+            $sheet->getStyle("{$start}{$labelRow}")->getFont()->setName('Arial')->setSize(8.5)->setBold(true)
                 ->getColor()->setRGB(self::GREY);
             $sheet->getStyle("{$start}{$valueStartRow}")->getFont()->setName('Arial')->setSize(17)->setBold(true)
-                ->getColor()->setRGB(self::NAVY);
+                ->getColor()->setRGB($valueColor);
             $sheet->getRowDimension($labelRow)->setRowHeight(21);
             $sheet->getRowDimension($valueStartRow)->setRowHeight(22);
             $sheet->getRowDimension($valueEndRow)->setRowHeight(17);
@@ -382,12 +406,12 @@ class CorporateExcelReportService
     {
         foreach ($columns as $index => $column) {
             $letter = $this->columnName($index + 1);
-            $sheet->setCellValueExplicit("{$letter}{$headerRow}", $column['label'], DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("{$letter}{$headerRow}", mb_strtoupper($column['label']), DataType::TYPE_STRING);
         }
 
         $lastColumn = $this->columnName(count($columns));
         $sheet->getStyle("A{$headerRow}:{$lastColumn}{$headerRow}")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 10, 'bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'font' => ['name' => 'Arial', 'size' => 9.5, 'bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::NAVY]],
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '47505B']],
@@ -420,7 +444,7 @@ class CorporateExcelReportService
                 $sheet->getStyle($cell)->getAlignment()->setHorizontal($alignment);
             }
             $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
-                'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::NAVY]],
+                'font' => ['name' => 'Arial', 'size' => 9.5, 'color' => ['rgb' => self::NAVY]],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $fillColor]],
                 'borders' => [
                     'allBorders' => ['borderStyle' => Border::BORDER_HAIR, 'color' => ['rgb' => 'D9DDE2']],
@@ -455,7 +479,8 @@ class CorporateExcelReportService
         if ($firstFormulaColumn > 0) {
             $sheet->mergeCells('A'.$row.':'.$this->columnName($firstFormulaColumn).$row);
         }
-        $sheet->setCellValueExplicit('A'.$row, $totals['label'] ?? 'TOTAL', DataType::TYPE_STRING);
+        $sheet->setCellValueExplicit('A'.$row, $totals['label'] ?? 'GRAND TOTAL', DataType::TYPE_STRING);
+        $sheet->getStyle('A'.$row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
         foreach ($formulas as $columnIndex => $formula) {
             if ($formula !== 'sum' || ! array_key_exists($columnIndex, $columns)) {
@@ -469,18 +494,20 @@ class CorporateExcelReportService
             $sheet->getStyle("{$letter}{$row}")->getNumberFormat()->setFormatCode(
                 $this->numberFormat($columns[$columnIndex]['format'] ?? 'number', $settings)
             );
+            $sheet->getStyle("{$letter}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         }
 
         $lastColumn = $this->columnName(count($columns));
         $sheet->getStyle("A{$row}:{$lastColumn}{$row}")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 10, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'font' => ['name' => 'Arial', 'size' => 10.5, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::LIGHT_ORANGE]],
             'borders' => [
                 'top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => self::ORANGE]],
+                'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => self::ORANGE]],
             ],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ]);
-        $sheet->getRowDimension($row)->setRowHeight(25);
+        $sheet->getRowDimension($row)->setRowHeight(26);
 
         return $row;
     }
@@ -503,17 +530,25 @@ class CorporateExcelReportService
             $sheet->mergeCells("{$start}{$startRow}:{$end}{$startRow}");
             $sheet->mergeCells("{$start}".($startRow + 1).":{$end}".($startRow + 1));
             $sheet->mergeCells("{$start}".($startRow + 3).":{$end}".($startRow + 3));
+            $sheet->mergeCells("{$start}".($startRow + 4).":{$end}".($startRow + 4));
+
             $sheet->setCellValueExplicit("{$start}{$startRow}", $block['label'], DataType::TYPE_STRING);
             if (filled($block['name'])) {
                 $sheet->setCellValueExplicit("{$start}".($startRow + 1), $block['name'], DataType::TYPE_STRING);
             }
-            $sheet->getStyle("{$start}{$startRow}:{$end}".($startRow + 3))->applyFromArray([
-                'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::NAVY]],
+            $sheet->setCellValueExplicit("{$start}".($startRow + 3), 'Designation: ___________________', DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("{$start}".($startRow + 4), 'Date: ___________________', DataType::TYPE_STRING);
+
+            $sheet->getStyle("{$start}{$startRow}:{$end}".($startRow + 4))->applyFromArray([
+                'font' => ['name' => 'Arial', 'size' => 8.5, 'color' => ['rgb' => self::NAVY]],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             ]);
-            $sheet->getStyle("{$start}{$startRow}")->getFont()->setBold(true)->getColor()->setRGB(self::GREY);
+            $sheet->getStyle("{$start}{$startRow}")->getFont()->setSize(9)->setBold(true)->getColor()->setRGB(self::GREY);
             $sheet->getStyle("{$start}".($startRow + 2).":{$end}".($startRow + 2))
                 ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('9CA3AF');
+            $sheet->getStyle("{$start}".($startRow + 3).":{$end}".($startRow + 4))
+                ->getFont()->setSize(8)->getColor()->setRGB(self::GREY);
+
             $firstColumn += $span;
         }
 
@@ -521,8 +556,9 @@ class CorporateExcelReportService
         $sheet->getRowDimension($startRow + 1)->setRowHeight(20);
         $sheet->getRowDimension($startRow + 2)->setRowHeight(24);
         $sheet->getRowDimension($startRow + 3)->setRowHeight(18);
+        $sheet->getRowDimension($startRow + 4)->setRowHeight(18);
 
-        return $startRow + 3;
+        return $startRow + 4;
     }
 
     /**
@@ -532,7 +568,7 @@ class CorporateExcelReportService
     {
         $footerLines = array_filter([
             $footer['text'] ?? null,
-            implode(' | ', array_filter([
+            implode('  •  ', array_filter([
                 $footer['phone'] ?? null,
                 $footer['email'] ?? null,
                 $footer['website'] ?? null,

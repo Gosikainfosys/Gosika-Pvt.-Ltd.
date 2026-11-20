@@ -54,16 +54,17 @@ class InventoryController extends Controller
             $item->location,
         ])->all();
 
-        $metadata = [];
+        $metadata = ['Report Ref.' => 'GSK-INV-RPT-'.date('Ymd-His')];
         if ($request->filled('category')) {
             $metadata['Category'] = $request->input('category');
         }
         if ($request->boolean('low_stock')) {
-            $metadata['Stock Filter'] = 'Low stock only';
+            $metadata['Stock Filter'] = 'Low stock items only';
         }
         if ($request->filled('search')) {
-            $metadata['Search'] = $request->input('search');
+            $metadata['Search Filter'] = $request->input('search');
         }
+        $metadata['Records'] = $items->count().' items';
 
         AuditLog::log('export', 'inventory', null, 'Exported inventory report to XLSX');
 
@@ -75,9 +76,9 @@ class InventoryController extends Controller
                 ['label' => 'Item Code', 'width' => 17],
                 ['label' => 'Item Name', 'width' => 26],
                 ['label' => 'Category', 'width' => 20],
-                ['label' => 'Quantity', 'format' => 'number', 'width' => 14],
+                ['label' => 'Quantity', 'format' => 'integer', 'width' => 14],
                 ['label' => 'Unit', 'width' => 12],
-                ['label' => 'Minimum Stock', 'format' => 'number', 'width' => 16],
+                ['label' => 'Min. Stock', 'format' => 'integer', 'width' => 14],
                 ['label' => 'Unit Price', 'format' => 'currency', 'width' => 17],
                 ['label' => 'Stock Valuation', 'format' => 'currency', 'width' => 19],
                 ['label' => 'Supplier', 'width' => 24],
@@ -85,9 +86,9 @@ class InventoryController extends Controller
             ],
             'rows' => $rows,
             'summary' => [
-                ['label' => 'Inventory Items', 'value' => $items->count(), 'format' => 'number'],
+                ['label' => 'Inventory Items', 'value' => $items->count(), 'format' => 'integer'],
                 ['label' => 'Stock Valuation', 'value' => (float) $items->sum(fn (InventoryItem $item) => $item->quantity * (float) $item->unit_price), 'format' => 'currency'],
-                ['label' => 'Low Stock Items', 'value' => $items->filter(fn (InventoryItem $item) => $item->isLowStock())->count(), 'format' => 'number'],
+                ['label' => 'Low Stock Items', 'value' => $items->filter(fn (InventoryItem $item) => $item->isLowStock())->count(), 'format' => 'integer'],
             ],
             'totals' => ['label' => 'TOTAL STOCK VALUATION', 'formulas' => [7 => 'sum']],
             'orientation' => 'landscape',

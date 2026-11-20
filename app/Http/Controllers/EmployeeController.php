@@ -273,8 +273,12 @@ class EmployeeController extends Controller
 
         return $reportService->download([
             'filename' => 'employees_' . date('Y_m_d') . '.xlsx',
-            'title' => 'Employee Directory',
-            'metadata' => ['Period' => 'All Records'],
+            'title' => 'Employee Information Report',
+            'metadata' => [
+                'Report Ref.' => 'GSK-EMP-RPT-'.date('Ymd-His'),
+                'Period' => 'All Records',
+                'Records' => count($rows).' employees',
+            ],
             'columns' => [
                 ['label' => 'Employee Code', 'width' => 17],
                 ['label' => 'Full Name', 'width' => 24],
@@ -289,8 +293,9 @@ class EmployeeController extends Controller
             ],
             'rows' => $rows,
             'summary' => [
-                ['label' => 'Total Employees', 'value' => $employees->count(), 'format' => 'number'],
-                ['label' => 'Active Employees', 'value' => $employees->where('status', 'active')->count(), 'format' => 'number'],
+                ['label' => 'Total Employees', 'value' => $employees->count(), 'format' => 'integer'],
+                ['label' => 'Active Employees', 'value' => $employees->where('status', 'active')->count(), 'format' => 'integer'],
+                ['label' => 'Departments', 'value' => $employees->pluck('department.name')->filter()->unique()->count(), 'format' => 'integer'],
                 ['label' => 'Basic Salary Total', 'value' => (float) $employees->sum('basic_salary'), 'format' => 'currency'],
             ],
             'totals' => ['label' => 'TOTAL BASIC SALARY', 'formulas' => [8 => 'sum']],
