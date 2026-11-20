@@ -123,8 +123,10 @@ class CorporateExcelReportService
             $headerEndRow
         );
         $logo = $this->addLogo($sheet, $settings['logo_path']);
-        $sheet->getStyle("A1:{$layoutLastColumn}{$headerEndRow}")
-            ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM)->getColor()->setRGB(self::ORANGE);
+
+        // ── Orange separator: thick bottom border on the last header row ──
+        $sheet->getStyle("A{$headerEndRow}:{$layoutLastColumn}{$headerEndRow}")
+            ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THICK)->getColor()->setRGB(self::ORANGE);
 
         // ── 2. SUMMARY KPI CARDS ────────────────────────────────────
         $currentRow = $headerEndRow + 2;
@@ -314,6 +316,11 @@ class CorporateExcelReportService
         string $rightEnd,
         int $headerEndRow
     ): void {
+        // Subtle grey background across the entire header area
+        $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")->applyFromArray([
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F9FAFB']],
+        ]);
+
         $sheet->getStyle("{$companyStart}1:{$companyEnd}1")->applyFromArray([
             'font' => ['name' => 'Arial', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
@@ -326,7 +333,7 @@ class CorporateExcelReportService
                 'wrapText' => true,
             ],
         ]);
-        $sheet->getRowDimension(1)->setRowHeight(28);
+        $sheet->getRowDimension(1)->setRowHeight(32);
         $sheet->getRowDimension(2)->setRowHeight(20);
         for ($row = 3; $row <= $headerEndRow; $row++) {
             if ($sheet->getRowDimension($row)->getRowHeight() === -1.0 || $sheet->getRowDimension($row)->getRowHeight() <= 0) {
