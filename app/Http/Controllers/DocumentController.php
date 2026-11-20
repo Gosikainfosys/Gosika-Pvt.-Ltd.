@@ -8,10 +8,25 @@ use App\Models\Project;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class DocumentController extends Controller
 {
+    private const DOCUMENT_CATEGORIES = [
+        '01_COMPANY_LEGAL_DOCUMENTS',
+        '02_HUMAN_RESOURCES_HR',
+        '03_FINANCE_ACCOUNTING',
+        '04_ADMINISTRATION_OFFICE',
+        '05_MARKETPLACE_OPERATIONS_GOSIKA',
+        '06_SOFTWARE_PROJECTS',
+        '07_TECHNICAL_IT_OPERATIONS',
+        '08_MARKETING_BRANDING',
+        '09_PROJECT_REPORTS_MANAGEMENT',
+        '10_TEMPLATES_MASTER_FILES',
+        '11_ARCHIVE_OLD_RECORDS',
+    ];
+
     public function index(Request $request)
     {
         $category = $request->input('category');
@@ -35,10 +50,10 @@ class DocumentController extends Controller
 
         $stats = [
             'total' => Document::count(),
-            'company' => Document::where('category', 'company')->count(),
-            'contracts' => Document::where('category', 'contract')->count(),
-            'employee' => Document::where('category', 'employee')->count(),
-            'finance' => Document::where('category', 'finance')->count(),
+            'categories' => Document::query()
+                ->selectRaw('category, COUNT(*) as total')
+                ->groupBy('category')
+                ->pluck('total', 'category'),
         ];
 
         return Inertia::render('Documents/Index', [
@@ -46,6 +61,10 @@ class DocumentController extends Controller
             'employees' => $employees,
             'projects' => $projects,
             'stats' => $stats,
+            'categories' => array_map(
+                fn ($category) => ['value' => $category, 'label' => $category],
+                self::DOCUMENT_CATEGORIES,
+            ),
             'filters' => $request->only(['category', 'search']),
         ]);
     }
@@ -54,13 +73,13 @@ class DocumentController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'in:company,employee,contract,agreement,finance,policy'],
+            'category' => ['required', Rule::in(self::DOCUMENT_CATEGORIES)],
             'employee_id' => ['nullable', 'exists:employees,id'],
             'project_id' => ['nullable', 'exists:projects,id'],
             'issue_date' => ['nullable', 'date'],
             'expiry_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
-            'file' => ['required', 'file', 'max:10240'], // 10MB limit
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,gif,webp', 'max:10240'],
         ]);
 
         $file = $request->file('file');
@@ -98,6 +117,38 @@ class DocumentController extends Controller
     {
         AuditLog::log('export', 'documents', $document->id, "Downloaded document: {$document->title}");
         return Storage::disk('public')->download($document->file_path, $document->file_name);
+    }
+
+    public function preview(Document $document)
+    {
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($document->file_path)) {
+            abort(404, 'The document file could not be found.');
+        }
+
+        $mimeType = $disk->mimeType($document->file_path);
+        $previewableMimeTypes = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+        ];
+
+        if (!in_array($mimeType, $previewableMimeTypes, true)) {
+            abort(415, 'Inline preview is available only for PDFs and images.');
+        }
+
+        return $disk->response(
+            $document->file_path,
+            $document->file_name,
+            [
+                'Content-Type' => $mimeType,
+                'X-Content-Type-Options' => 'nosniff',
+            ],
+            'inline',
+        );
     }
 
     public function destroy(Document $document)

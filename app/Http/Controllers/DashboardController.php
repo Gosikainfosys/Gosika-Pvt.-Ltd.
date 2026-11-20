@@ -99,7 +99,7 @@ class DashboardController extends Controller
         // 6. Pending tasks
         $urgentTasks = Task::with(['assignedEmployee', 'project'])
             ->whereIn('status', ['todo', 'in_progress', 'review'])
-            ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END")
             ->orderBy('due_date')
             ->limit(5)
             ->get();

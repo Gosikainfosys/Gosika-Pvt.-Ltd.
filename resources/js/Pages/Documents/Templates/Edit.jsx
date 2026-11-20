@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
+import axios from 'axios';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Badge from '@/Components/Badge';
 import {
@@ -34,6 +35,10 @@ export default function Edit({
 }) {
     const [editorTab, setEditorTab] = useState('content'); // 'content' | 'design' | 'variables'
     const [previewZoom, setPreviewZoom] = useState(100);
+    const [previewMode, setPreviewMode] = useState('layout');
+    const [previewPdfUrl, setPreviewPdfUrl] = useState('');
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewError, setPreviewError] = useState('');
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [copiedVar, setCopiedVar] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -287,6 +292,51 @@ export default function Edit({
             .replace(/\{\{agreement\.date\}\}/g, '01-11-2026')
             .replace(/\{\{hr\.representative_name\}\}/g, 'Sabin Shrestha');
     };
+
+    useEffect(() => {
+        if (previewMode !== 'pdf') return undefined;
+
+        const controller = new AbortController();
+        const timeout = window.setTimeout(async () => {
+            setPreviewLoading(true);
+            setPreviewError('');
+
+            try {
+                const response = await axios.post(
+                    `/document-templates/${template.id}/preview-pdf/live`,
+                    {
+                        design_config: design,
+                        sections_data: sections,
+                        employee_id: selectedEmployeeId || null,
+                    },
+                    { responseType: 'blob', signal: controller.signal },
+                );
+
+                if (!response.headers['content-type']?.includes('application/pdf')) {
+                    throw new Error('The preview endpoint did not return a PDF.');
+                }
+
+                if (!controller.signal.aborted) {
+                    setPreviewPdfUrl(URL.createObjectURL(response.data));
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    setPreviewError(error.message || 'The live PDF preview could not be generated.');
+                }
+            } finally {
+                if (!controller.signal.aborted) setPreviewLoading(false);
+            }
+        }, 400);
+
+        return () => {
+            window.clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [previewMode, template.id, design, sections, selectedEmployeeId]);
+
+    useEffect(() => () => {
+        if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl);
+    }, [previewPdfUrl]);
 
     return (
         <AdminLayout title={`Edit Template: ${template.name}`}>
@@ -801,12 +851,31 @@ export default function Edit({
                                 <Eye className="h-4 w-4 text-[#F36B12]" />
                                 <span>Live A4 Document Preview</span>
                             </span>
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold">
-                                Real-Time Sync
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${previewError ? 'bg-red-100 text-red-700' : previewLoading ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                {previewError ? 'Preview Error' : previewLoading ? 'Updating PDF…' : previewMode === 'pdf' ? 'Live PDF' : 'Live Layout'}
                             </span>
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                                <button
+                                    type="button"
+                                    aria-pressed={previewMode === 'layout'}
+                                    onClick={() => setPreviewMode('layout')}
+                                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${previewMode === 'layout' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'}`}
+                                >
+                                    Layout
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={previewMode === 'pdf'}
+                                    onClick={() => setPreviewMode('pdf')}
+                                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${previewMode === 'pdf' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'}`}
+                                >
+                                    Live PDF
+                                </button>
+                            </div>
+
                             {/* Employee Switcher */}
                             <select
                                 value={selectedEmployeeId}
@@ -847,6 +916,7 @@ export default function Edit({
                     </div>
 
                     {/* A4 Container Preview Canvas */}
+                    {previewMode === 'layout' ? (
                     <div className="bg-gray-100 rounded-xl p-4 overflow-auto max-h-[calc(100vh-250px)] flex justify-center">
                         <div
                             style={{
@@ -1153,9 +1223,31 @@ export default function Edit({
                                 <span className="font-bold">Gosika Infosys</span>
                             </div>
                         </div>
+                        </div>
+                        ) : (
+                            <div className="relative min-h-[70vh] overflow-auto rounded-xl border border-gray-200 bg-gray-100">
+                                {previewPdfUrl ? (
+                                    <iframe
+                                        key={previewPdfUrl}
+                                        src={previewPdfUrl}
+                                        title="Live PDF preview of the current draft"
+                                        className="h-[70vh] min-h-[600px] w-full border-0 bg-white"
+                                        style={{ zoom: `${previewZoom}%` }}
+                                    />
+                                ) : (
+                                    <div role="status" className="flex min-h-[70vh] items-center justify-center p-8 text-center text-sm text-gray-500">
+                                        {previewLoading ? 'Generating live PDF preview…' : previewError || 'Switch to Live PDF to preview the current draft.'}
+                                    </div>
+                                )}
+                                {previewError && (
+                                    <p role="alert" className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                                        {previewError}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
         </AdminLayout>
     );
 }

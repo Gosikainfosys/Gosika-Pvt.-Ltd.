@@ -138,6 +138,7 @@ Route::middleware('auth')->group(function () {
     // Documents & Physical Document Archives
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
+    Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 
@@ -160,6 +161,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/document-templates/{document_template}/versions', [DocumentTemplateController::class, 'versions'])->name('document-templates.versions');
     Route::post('/document-templates/{document_template}/versions/{version}/restore', [DocumentTemplateController::class, 'restoreVersion'])->name('document-templates.restore-version');
     Route::get('/document-templates/{document_template}/preview-pdf', [DocumentTemplateController::class, 'renderLivePdf'])->name('document-templates.preview-pdf');
+    Route::post('/document-templates/{document_template}/preview-pdf/live', [DocumentTemplateController::class, 'renderDraftPdf'])->name('document-templates.preview-pdf.live');
     Route::delete('/document-templates/{document_template}', [DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
 
     // Reports

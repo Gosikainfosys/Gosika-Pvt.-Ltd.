@@ -262,7 +262,23 @@ class DocumentTemplateController extends Controller
      */
     public function renderLivePdf(Request $request, DocumentTemplate $document_template)
     {
-        $employeeId = $request->query('employee_id');
+        return $this->renderPdfPreview($request, $document_template);
+    }
+
+    public function renderDraftPdf(Request $request, DocumentTemplate $document_template)
+    {
+        $draft = $request->validate([
+            'design_config' => ['required', 'array'],
+            'sections_data' => ['required', 'array'],
+            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
+        ]);
+
+        return $this->renderPdfPreview($request, $document_template, $draft);
+    }
+
+    private function renderPdfPreview(Request $request, DocumentTemplate $document_template, array $draft = [])
+    {
+        $employeeId = $draft['employee_id'] ?? $request->query('employee_id');
         $employee = $employeeId ? Employee::find($employeeId) : Employee::first();
 
         if (!$employee) {
@@ -291,8 +307,10 @@ class DocumentTemplateController extends Controller
         }
 
         $variables = $this->docService->compileVariables($employee);
-        $design = array_merge(DocumentTemplate::defaultDesignConfig(), $document_template->design_config ?: []);
-        $sections = $this->docService->interpolateArray($document_template->sections_data ?: [], $variables);
+        $designConfig = $draft['design_config'] ?? $document_template->design_config;
+        $sectionsData = $draft['sections_data'] ?? $document_template->sections_data;
+        $design = array_merge(DocumentTemplate::defaultDesignConfig(), $designConfig ?: []);
+        $sections = $this->docService->interpolateArray($sectionsData ?: [], $variables);
 
         $cleanVars = [];
         foreach ($variables as $k => $val) {

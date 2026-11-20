@@ -1,33 +1,36 @@
 import React, { useState, useRef } from 'react';
-import { router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Pagination from '@/Components/Pagination';
-import Badge from '@/Components/Badge';
 import Modal from '@/Components/Modal';
 import {
     FolderLock, Upload, Search, Download, Trash2, X, FileText,
-    FileSpreadsheet, FileImage, File, Building2, Users, FileSignature,
-    DollarSign, BookOpen, AlertTriangle, Calendar, Link2
+    FileSpreadsheet, FileImage, File, Building2, Users, DollarSign,
+    BookOpen, AlertTriangle, Link2, Folder, FolderOpen, ChevronRight, Eye
 } from 'lucide-react';
 
-const CATEGORIES = [
-    { value: '', label: 'All Documents' },
-    { value: 'company', label: 'Company' },
-    { value: 'employee', label: 'Employee' },
-    { value: 'contract', label: 'Contract' },
-    { value: 'agreement', label: 'Agreement' },
-    { value: 'finance', label: 'Finance' },
-    { value: 'policy', label: 'Policy' },
-];
+const PREVIEWABLE_FILE_TYPES = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
 
 const CATEGORY_META = {
-    company:   { label: 'Company',   color: 'bg-blue-50 text-blue-700',   variant: 'info' },
-    employee:  { label: 'Employee',  color: 'bg-purple-50 text-purple-700', variant: 'default' },
-    contract:  { label: 'Contract',  color: 'bg-orange-50 text-orange-700', variant: 'warning' },
-    agreement: { label: 'Agreement', color: 'bg-teal-50 text-teal-700',   variant: 'default' },
-    finance:   { label: 'Finance',   color: 'bg-green-50 text-green-700',  variant: 'success' },
-    policy:    { label: 'Policy',    color: 'bg-gray-50 text-gray-700',    variant: 'default' },
+    '01_COMPANY_LEGAL_DOCUMENTS': { color: 'bg-blue-50 text-blue-700' },
+    '02_HUMAN_RESOURCES_HR': { color: 'bg-purple-50 text-purple-700' },
+    '03_FINANCE_ACCOUNTING': { color: 'bg-green-50 text-green-700' },
+    '04_ADMINISTRATION_OFFICE': { color: 'bg-orange-50 text-orange-700' },
+    '05_MARKETPLACE_OPERATIONS_GOSIKA': { color: 'bg-teal-50 text-teal-700' },
+    '06_SOFTWARE_PROJECTS': { color: 'bg-indigo-50 text-indigo-700' },
+    '07_TECHNICAL_IT_OPERATIONS': { color: 'bg-cyan-50 text-cyan-700' },
+    '08_MARKETING_BRANDING': { color: 'bg-pink-50 text-pink-700' },
+    '09_PROJECT_REPORTS_MANAGEMENT': { color: 'bg-amber-50 text-amber-700' },
+    '10_TEMPLATES_MASTER_FILES': { color: 'bg-violet-50 text-violet-700' },
+    '11_ARCHIVE_OLD_RECORDS': { color: 'bg-gray-50 text-gray-700' },
 };
+
+const CATEGORY_CARD_STYLES = [
+    { icon: Building2, bg: 'bg-blue-50 text-blue-600' },
+    { icon: Users, bg: 'bg-purple-50 text-purple-600' },
+    { icon: DollarSign, bg: 'bg-green-50 text-green-600' },
+    { icon: BookOpen, bg: 'bg-orange-50 text-orange-600' },
+];
 
 function fileIcon(ext) {
     const e = (ext || '').toLowerCase();
@@ -49,15 +52,16 @@ function formatDate(d) {
     return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function DocumentsIndex({ documents, employees, projects, stats, filters }) {
+export default function DocumentsIndex({ documents, employees, projects, stats, categories = [], filters }) {
     const [showUpload, setShowUpload] = useState(false);
+    const [previewDocument, setPreviewDocument] = useState(null);
     const [search, setSearch] = useState(filters?.search || '');
     const [activeCategory, setActiveCategory] = useState(filters?.category || '');
     const fileRef = useRef();
 
     const { data, setData, post, processing, errors, reset } = useForm({
         title: '',
-        category: 'company',
+        category: '01_COMPANY_LEGAL_DOCUMENTS',
         employee_id: '',
         project_id: '',
         issue_date: '',
@@ -76,11 +80,32 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
         router.get('/documents', { category: activeCategory, search }, { preserveState: true, replace: true });
     }
 
+    function resetUpload() {
+        reset();
+        if (fileRef.current) fileRef.current.value = '';
+    }
+
+    function closeUpload() {
+        setShowUpload(false);
+        resetUpload();
+    }
+
+    function handleFileDrop(e) {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) setData('file', file);
+    }
+
+    function clearSelectedFile() {
+        setData('file', null);
+        if (fileRef.current) fileRef.current.value = '';
+    }
+
     function handleUpload(e) {
         e.preventDefault();
         post('/documents', {
             forceFormData: true,
-            onSuccess: () => { setShowUpload(false); reset(); },
+            onSuccess: closeUpload,
         });
     }
 
@@ -93,10 +118,12 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
 
     const statCards = [
         { label: 'Total', value: stats.total, cat: '', icon: FolderLock, bg: 'bg-[#FFF0E8] text-[#FF5500]' },
-        { label: 'Company', value: stats.company, cat: 'company', icon: Building2, bg: 'bg-blue-50 text-blue-600' },
-        { label: 'Employee', value: stats.employee, cat: 'employee', icon: Users, bg: 'bg-purple-50 text-purple-600' },
-        { label: 'Contracts', value: stats.contracts, cat: 'contract', icon: FileSignature, bg: 'bg-orange-50 text-orange-600' },
-        { label: 'Finance', value: stats.finance, cat: 'finance', icon: DollarSign, bg: 'bg-green-50 text-green-600' },
+        ...categories.slice(0, 4).map((category, index) => ({
+            label: category.label,
+            value: stats.categories?.[category.value] || 0,
+            cat: category.value,
+            ...CATEGORY_CARD_STYLES[index],
+        })),
     ];
 
     return (
@@ -108,7 +135,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                         <h1 className="text-2xl font-bold text-[#202124]">Document Vault</h1>
                         <p className="text-sm text-gray-500 mt-1">Centralized archive for all company documents</p>
                     </div>
-                    <button onClick={() => setShowUpload(true)}
+                    <button type="button" onClick={() => setShowUpload(true)}
                         className="flex items-center gap-2 bg-[#FF5500] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors">
                         <Upload size={16} /> Upload Document
                     </button>
@@ -117,7 +144,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {statCards.map(s => (
-                        <button key={s.label} onClick={() => applyFilter(s.cat)}
+                        <button type="button" key={s.label} onClick={() => applyFilter(s.cat)}
                             className={`bg-white border rounded-xl p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow ${activeCategory === s.cat ? 'border-[#FF5500] ring-1 ring-[#FF5500]/30' : 'border-[#E5E7EB]'}`}>
                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.bg}`}>
                                 <s.icon size={16} />
@@ -130,22 +157,65 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                     ))}
                 </div>
 
-                {/* Category tabs + Search */}
+                {/* Folder structure */}
+                <section className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden" aria-label="Document folders">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-4 py-3 border-b border-[#E5E7EB]">
+                        <div>
+                            <h2 className="text-sm font-semibold text-[#202124]">Folder structure</h2>
+                            <p className="text-xs text-gray-500">Choose a folder to view its documents.</p>
+                        </div>
+                        {activeCategory && (
+                            <button type="button" onClick={() => applyFilter('')}
+                                className="text-xs font-medium text-[#FF5500] hover:underline">
+                                View all folders
+                            </button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
+                        {categories.map(category => {
+                            const selected = activeCategory === category.value;
+                            const meta = CATEGORY_META[category.value];
+                            const count = stats.categories?.[category.value] || 0;
+                            return (
+                                <button type="button" key={category.value} aria-pressed={selected}
+                                    title={category.label} onClick={() => applyFilter(category.value)}
+                                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-[#FF5500] bg-orange-50/40 ring-1 ring-[#FF5500]/20' : 'border-[#E5E7EB] hover:border-gray-300 hover:bg-gray-50'}`}>
+                                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${meta.color}`}>
+                                        {selected ? <FolderOpen size={19} /> : <Folder size={19} />}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block truncate text-xs font-semibold text-[#202124]">{category.label}</span>
+                                        <span className="mt-1 block text-xs text-gray-500">{count} {count === 1 ? 'document' : 'documents'}</span>
+                                    </span>
+                                    <ChevronRight size={16} className="shrink-0 text-gray-400" />
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                {/* Category filter + Search */}
                 <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-[#E5E7EB]">
-                        <div className="flex gap-1 flex-wrap">
-                            {CATEGORIES.map(c => (
-                                <button key={c.value} onClick={() => applyFilter(c.value)}
-                                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeCategory === c.value ? 'bg-[#FF5500] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                                    {c.label}
-                                </button>
-                            ))}
-                        </div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                            Folder
+                            <select aria-label="Filter by category" value={activeCategory}
+                                onChange={e => applyFilter(e.target.value)}
+                                className="max-w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#FF5500]/20 focus:border-[#FF5500]">
+                                <option value="">All Documents</option>
+                                {categories.map(category => (
+                                    <option key={category.value} value={category.value}>{category.label}</option>
+                                ))}
+                            </select>
+                        </label>
                         <form onSubmit={applySearch} className="relative">
-                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                                 placeholder="Search documents..."
-                                className="pl-8 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#FF5500]/20 focus:border-[#FF5500]" />
+                                className="pl-3 pr-10 py-2 border border-[#E5E7EB] rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#FF5500]/20 focus:border-[#FF5500]" />
+                            <button type="submit" aria-label="Search documents"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#FF5500]">
+                                <Search size={15} />
+                            </button>
                         </form>
                     </div>
 
@@ -171,7 +241,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                 </thead>
                                 <tbody className="divide-y divide-[#E5E7EB]">
                                     {docs.map((doc, i) => {
-                                        const meta = CATEGORY_META[doc.category] || {};
+                                        const meta = CATEGORY_META[doc.category] || { label: doc.category, color: 'bg-gray-50 text-gray-700' };
                                         const isExpiringSoon = doc.expiry_date && new Date(doc.expiry_date) < new Date(Date.now() + 30 * 86400000);
                                         const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
                                         return (
@@ -218,14 +288,19 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-center gap-2">
+                                                        <button type="button" onClick={() => setPreviewDocument(doc)}
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-orange-50 hover:text-[#FF5500] transition-colors"
+                                                            title="Preview" aria-label={`Preview ${doc.title}`}>
+                                                            <Eye size={15} />
+                                                        </button>
                                                         <a href={`/documents/${doc.id}/download`}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                                            title="Download">
+                                                            title="Download" aria-label={`Download ${doc.title}`}>
                                                             <Download size={15} />
                                                         </a>
-                                                        <button onClick={() => handleDelete(doc)}
+                                                        <button type="button" onClick={() => handleDelete(doc)}
                                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                                            title="Delete">
+                                                            title="Delete" aria-label={`Delete ${doc.title}`}>
                                                             <Trash2 size={15} />
                                                         </button>
                                                     </div>
@@ -247,17 +322,12 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
             </div>
 
             {/* Upload Modal */}
-            <Modal show={showUpload} onClose={() => { setShowUpload(false); reset(); }} maxWidth="2xl">
-                <div className="p-6">
-                    <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-lg font-bold text-[#202124]">Upload Document</h2>
-                        <button onClick={() => { setShowUpload(false); reset(); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                    </div>
+            <Modal isOpen={showUpload} onClose={closeUpload} title="Upload Document" maxWidth="max-w-2xl">
                     <form onSubmit={handleUpload} className="space-y-4" encType="multipart/form-data">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Document Title <span className="text-red-500">*</span></label>
-                                <input type="text" value={data.title} onChange={e => setData('title', e.target.value)}
+                                <input type="text" required value={data.title} onChange={e => setData('title', e.target.value)}
                                     placeholder="e.g. Employment Contract – Aarav Sharma"
                                     className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5500]/20 focus:border-[#FF5500]" />
                                 {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
@@ -266,15 +336,12 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
                                 <select value={data.category} onChange={e => setData('category', e.target.value)}
                                     className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF5500]/20 focus:border-[#FF5500]">
-                                    <option value="company">Company</option>
-                                    <option value="employee">Employee</option>
-                                    <option value="contract">Contract</option>
-                                    <option value="agreement">Agreement</option>
-                                    <option value="finance">Finance</option>
-                                    <option value="policy">Policy</option>
+                                    {categories.map(category => (
+                                        <option key={category.value} value={category.value}>{category.label}</option>
+                                    ))}
                                 </select>
                             </div>
-                            {data.category === 'employee' && (
+                            {data.category === '02_HUMAN_RESOURCES_HR' && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Linked Employee</label>
                                     <select value={data.employee_id} onChange={e => setData('employee_id', e.target.value)}
@@ -313,8 +380,12 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                             </div>
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">File <span className="text-red-500">*</span></label>
-                                <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-6 text-center hover:border-[#FF5500]/40 transition-colors">
-                                    <input ref={fileRef} type="file" className="hidden"
+                                <div
+                                    onDragOver={e => e.preventDefault()}
+                                    onDrop={handleFileDrop}
+                                    className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-6 text-center hover:border-[#FF5500]/40 transition-colors"
+                                >
+                                    <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp" className="hidden"
                                         onChange={e => setData('file', e.target.files[0])} />
                                     {data.file ? (
                                         <div className="flex items-center justify-center gap-3">
@@ -323,7 +394,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                                 <div className="text-sm font-medium text-[#202124]">{data.file.name}</div>
                                                 <div className="text-xs text-gray-400">{formatSize(Math.round(data.file.size / 1024))}</div>
                                             </div>
-                                            <button type="button" onClick={() => setData('file', null)} className="text-gray-400 hover:text-red-500 ml-2"><X size={16} /></button>
+                                            <button type="button" onClick={clearSelectedFile} className="text-gray-400 hover:text-red-500 ml-2"><X size={16} /></button>
                                         </div>
                                     ) : (
                                         <div>
@@ -337,7 +408,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={() => { setShowUpload(false); reset(); }}
+                            <button type="button" onClick={closeUpload}
                                 className="px-4 py-2 text-sm border border-[#E5E7EB] rounded-lg hover:bg-gray-50">Cancel</button>
                             <button type="submit" disabled={processing}
                                 className="px-5 py-2 text-sm bg-[#FF5500] text-white rounded-lg hover:bg-orange-600 disabled:opacity-60 transition-colors">
@@ -345,7 +416,44 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                             </button>
                         </div>
                     </form>
-                </div>
+            </Modal>
+
+            <Modal
+                isOpen={!!previewDocument}
+                onClose={() => setPreviewDocument(null)}
+                title={`Preview: ${previewDocument?.title || ''}`}
+                maxWidth="max-w-5xl"
+            >
+                {previewDocument && (
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <span className="text-gray-500">{previewDocument.file_name}</span>
+                            <div className="flex gap-2">
+                                <a href={`/documents/${previewDocument.id}/preview`} target="_blank" rel="noopener noreferrer"
+                                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                    Open in new tab
+                                </a>
+                                <a href={`/documents/${previewDocument.id}/download`}
+                                    className="rounded-lg bg-[#FF5500] px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-600">
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                        {PREVIEWABLE_FILE_TYPES.includes((previewDocument.file_type || '').toLowerCase()) ? (
+                            <iframe
+                                src={`/documents/${previewDocument.id}/preview`}
+                                title={`Preview of ${previewDocument.title}`}
+                                className="h-[70vh] min-h-[400px] w-full rounded-lg border border-gray-200 bg-gray-50"
+                            />
+                        ) : (
+                            <div className="flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+                                <File size={32} className="mb-3 text-gray-400" />
+                                <p className="font-medium text-gray-700">Preview is not available for this file type.</p>
+                                <p className="mt-1 text-sm text-gray-500">Download the file to open it in a compatible application.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </Modal>
         </AdminLayout>
     );

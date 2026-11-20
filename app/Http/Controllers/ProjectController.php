@@ -100,7 +100,9 @@ class ProjectController extends Controller
             $query->where('project_id', $projectId);
         }
 
-        $tasks = $query->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")->get();
+        $tasks = $query
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END")
+            ->get();
         $projects = Project::select('id', 'name', 'code')->get();
         $employees = Employee::where('status', 'active')->select('id', 'full_name', 'employee_code')->get();
 
