@@ -47,9 +47,11 @@ class AuthenticationFlowsTest extends TestCase
             $this->assertSame('Reset your password', $mail->subject);
             $this->assertSame('emails.auth.password-reset', $mail->view['html']);
             $this->assertSame('emails.auth.password-reset-text', $mail->view['text']);
+            $this->assertStringContainsString('images/gosika-icon.png', $mail->viewData['logoUrl']);
             $this->assertStringContainsString('/reset-password/', $mail->viewData['resetUrl']);
             $this->view($mail->view['html'], $mail->viewData)
                 ->assertSee('Reset password')
+                ->assertSee($mail->viewData['logoUrl'], false)
                 ->assertSee($mail->viewData['resetUrl'], false);
 
             $plainText = view($mail->view['text'], $mail->viewData)->render();

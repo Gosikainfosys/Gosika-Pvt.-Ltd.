@@ -13,7 +13,7 @@
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%; max-width:600px;">
                     <tr>
                         <td align="center" style="padding:8px 16px 24px;">
-                            <span style="display:inline-block; width:42px; height:42px; line-height:42px; border-radius:12px; background-color:#ff5500; color:#ffffff; font-size:24px; font-weight:700; text-align:center;">G</span>
+                            <img src="{{ $logoUrl }}" alt="{{ $appName }}" width="56" height="56" style="display:block; width:56px; height:56px; object-fit:contain;">
                             <div style="padding-top:10px; color:#202124; font-size:17px; font-weight:700;">{{ $appName }}</div>
                         </td>
                     </tr>

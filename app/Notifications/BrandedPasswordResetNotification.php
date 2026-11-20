@@ -13,6 +13,7 @@ class BrandedPasswordResetNotification extends ResetPassword
         $url = $this->resetUrl($notifiable);
         $viewData = [
             'appName' => config('app.name', 'Gosika Office Management System'),
+            'logoUrl' => asset('images/gosika-icon.png'),
             'recipientName' => $recipientName,
             'resetUrl' => $url,
             'expiresIn' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60),
