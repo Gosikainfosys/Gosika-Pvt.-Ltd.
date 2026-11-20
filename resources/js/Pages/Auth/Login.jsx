@@ -1,9 +1,9 @@
 import React from 'react';
-import { useForm, Head, usePage } from '@inertiajs/react';
+import { useForm, Head, Link, usePage } from '@inertiajs/react';
 import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
-    const { company } = usePage().props;
+    const { company, flash } = usePage().props;
     const companyLocation = [company?.address, company?.city, company?.country]
         .filter(Boolean)
         .join(', ');
@@ -49,6 +49,12 @@ export default function Login() {
                         <ShieldCheck className="h-5 w-5 text-[#FF5500]" />
                     </div>
 
+                    {(flash?.success || flash?.status) && (
+                        <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                            {flash.success || flash.status}
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Email */}
                         <div>
@@ -93,7 +99,7 @@ export default function Login() {
                         </div>
 
                         {/* Remember Me */}
-                        <div className="flex items-center justify-between pt-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                             <label className="flex items-center cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -103,6 +109,9 @@ export default function Login() {
                                 />
                                 <span className="ml-2 text-xs text-gray-600 font-medium">Keep me signed in</span>
                             </label>
+                            <Link href="/forgot-password" className="text-xs font-semibold text-[#FF5500] hover:underline">
+                                Forgot password?
+                            </Link>
                         </div>
 
                         {/* Submit Button */}

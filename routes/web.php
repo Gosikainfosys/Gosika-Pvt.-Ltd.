@@ -1,47 +1,67 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\EmployeeController;
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\LeaveController;
-use App\Http\Controllers\HolidayController;
-use App\Http\Controllers\PayrollController;
-use App\Http\Controllers\IdCardController;
-use App\Http\Controllers\FinanceController;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\MeetingController;
 use App\Http\Controllers\AnnouncementController;
-use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\AssetController;
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\CompanySettingController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\VerifyIdController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CompanySettingController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTemplateController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeDocumentController;
+use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\IdCardController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\MeetingController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\VerifyIdController;
 use Illuminate\Support\Facades\Route;
 
 // Public Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1')->name('login.post');
+Route::middleware('guest')->group(function () {
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])
+        ->middleware('throttle:6,1')
+        ->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:6,1')
+        ->name('password.update');
+});
+Route::get('/verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('verification.verify');
 Route::get('/verify-id/{token}', [VerifyIdController::class, 'verify'])->name('verify.id');
 
 // Protected Administrator Routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/verify-email', [AuthController::class, 'showEmailVerification'])->name('verification.notice');
+    Route::post('/email/verification-notification', [AuthController::class, 'sendEmailVerification'])
+        ->middleware('throttle:6,1')
+        ->name('verification.send');
 
     // Dashboard
-    Route::get('/', fn() => redirect()->route('dashboard'));
+    Route::get('/', fn () => redirect()->route('dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Administrator Profile
     Route::get('/profile', [AuthController::class, 'showProfile'])->name('profile');
     Route::put('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/profile/password', [AuthController::class, 'updatePassword'])
+        ->middleware('throttle:6,1')
+        ->name('profile.password.update');
 
     // HR - Employees
     Route::get('/employees/export-csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');

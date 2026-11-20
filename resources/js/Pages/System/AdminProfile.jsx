@@ -20,19 +20,18 @@ export default function AdminProfile() {
     const { auth, flash } = usePage().props;
     const user = auth?.user ?? {};
 
-    // Profile form — single PUT to /admin/profile (updateProfile)
     const profileForm = useForm({
         name: user.name ?? '',
         email: user.email ?? '',
         phone: user.phone ?? '',
         avatar: null,
+        current_password: '',
     });
 
     const [avatarPreview, setAvatarPreview] = useState(
         user.avatar_url || (user.avatar ? `/storage/${user.avatar}` : null)
     );
 
-    // Password form — PUT to /admin/password
     const passwordForm = useForm({
         current_password: '',
         password: '',
@@ -48,13 +47,15 @@ export default function AdminProfile() {
 
     const handleProfileSubmit = (e) => {
         e.preventDefault();
-        router.post('/profile', {
-            _method: 'put',
-            ...profileForm.data,
-        }, {
+        const emailChanged = profileForm.data.email !== user.email;
+        profileForm.transform((data) => ({ ...data, _method: 'put' }));
+        profileForm.post('/profile', {
             forceFormData: true,
             onSuccess: () => {
-                setProfileSuccess('Profile updated successfully.');
+                setProfileSuccess(emailChanged
+                    ? 'Profile updated. Check your new email address for a verification link.'
+                    : 'Profile updated successfully.');
+                profileForm.reset('current_password');
                 setTimeout(() => setProfileSuccess(''), 4000);
             },
         });
@@ -62,7 +63,7 @@ export default function AdminProfile() {
 
     const handlePasswordSubmit = (e) => {
         e.preventDefault();
-        passwordForm.put('/profile', {
+        passwordForm.put('/profile/password', {
             onSuccess: () => {
                 setPasswordSuccess('Password updated successfully.');
                 passwordForm.reset();
@@ -142,6 +143,23 @@ export default function AdminProfile() {
                         <ShieldCheck className="h-3 w-3" />
                         System Administrator
                     </span>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {user.email_verified_at ? (
+                            <span className="text-[11px] font-semibold text-emerald-700">Email verified</span>
+                        ) : (
+                            <>
+                                <span className="text-[11px] font-semibold text-amber-700">Email not verified</span>
+                                <button
+                                    type="button"
+                                    onClick={() => router.post('/email/verification-notification', {}, { preserveScroll: true })}
+                                    className="text-[11px] font-bold text-[#FF5500] hover:underline"
+                                >
+                                    Send verification link
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {flash?.status && <p role="status" className="mt-1 text-[11px] text-emerald-700">{flash.status}</p>}
                 </div>
             </div>
 
@@ -249,6 +267,25 @@ export default function AdminProfile() {
                             )}
                         </div>
 
+                        {profileForm.data.email !== user.email && (
+                            <div>
+                                <label className="block text-xs font-semibold text-[#202124] mb-1">
+                                    Current Password <span className="text-[#FF5500]">*</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    value={profileForm.data.current_password}
+                                    onChange={(e) => profileForm.setData('current_password', e.target.value)}
+                                    autoComplete="current-password"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#FF5500]/30 focus:border-[#FF5500]"
+                                />
+                                {profileForm.errors.current_password && (
+                                    <p className="mt-1 text-[11px] text-red-500">{profileForm.errors.current_password}</p>
+                                )}
+                                <p className="mt-1 text-[10px] text-gray-500">Confirm your password to change the account email.</p>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-xs font-semibold text-[#202124] mb-1">
                                 Phone Number
@@ -348,9 +385,10 @@ export default function AdminProfile() {
                             {passwordForm.data.password && (
                                 <div className="space-y-1">
                                     {[
-                                        { label: 'At least 8 characters', ok: passwordForm.data.password.length >= 8 },
+                                        { label: 'At least 12 characters', ok: passwordForm.data.password.length >= 12 },
+                                        { label: 'Uppercase and lowercase letters', ok: /[a-z]/.test(passwordForm.data.password) && /[A-Z]/.test(passwordForm.data.password) },
                                         { label: 'Contains a number', ok: /\d/.test(passwordForm.data.password) },
-                                        { label: 'Contains a letter', ok: /[a-zA-Z]/.test(passwordForm.data.password) },
+                                        { label: 'Contains a symbol', ok: /[^a-zA-Z0-9]/.test(passwordForm.data.password) },
                                     ].map((rule) => (
                                         <div key={rule.label} className="flex items-center gap-1.5">
                                             <div className={`h-1.5 w-1.5 rounded-full ${rule.ok ? 'bg-emerald-500' : 'bg-gray-300'}`} />

@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'email_verified_at' => $user->email_verified_at,
                     'role' => $user->role,
                     'avatar' => $user->avatar,
                     'avatar_url' => $user->avatar_url,
@@ -76,6 +77,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
+                'status' => fn () => $request->session()->get('status'),
             ],
             'notifications' => [
                 'unread_count' => $unreadCount,
