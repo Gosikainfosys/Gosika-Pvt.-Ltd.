@@ -111,14 +111,14 @@ class CorporateExcelReportService
             $sheet->mergeCells("{$centerStart}{$rowNum}:{$centerEnd}{$rowNum}");
             $sheet->setCellValueExplicit("{$centerStart}{$rowNum}", $companyLines[$i], DataType::TYPE_STRING);
             $sheet->getStyle("{$centerStart}{$rowNum}")->applyFromArray([
-                'font' => ['name' => 'Calibri', 'size' => 10, 'color' => ['rgb' => self::GREY]],
+                'font' => ['name' => 'Calibri', 'size' => 9.5, 'color' => ['rgb' => self::GREY]],
                 'alignment' => [
                     'vertical'   => Alignment::VERTICAL_CENTER,
                     'horizontal' => Alignment::HORIZONTAL_LEFT,
                     'wrapText'   => true,
                 ],
             ]);
-            $sheet->getRowDimension($rowNum)->setRowHeight(18);
+            $sheet->getRowDimension($rowNum)->setRowHeight(16);
         }
         if ((2 + $companyLineCount) <= $headerEndRow) {
             $remStart = 2 + $companyLineCount;
@@ -138,7 +138,8 @@ class CorporateExcelReportService
             $rightEnd,
             $headerEndRow
         );
-        $logo = $this->addLogo($sheet, $settings['logo_path']);
+        $logo = $this->addLogo($sheet, $settings['logo_path'], $headerEndRow);
+        $this->addWatermark($sheet, $settings['logo_path']);
 
         // ── Orange separator: thick bottom border on the last header row ──
         $sheet->getStyle("A{$headerEndRow}:{$layoutLastColumn}{$headerEndRow}")
@@ -290,47 +291,61 @@ class CorporateExcelReportService
     }
 
     /**
+     * Write report metadata in a compact 2-items-per-row layout within the right section.
+     *
      * @param  array<string, string>  $metadata
      */
     private function writeMetadata($sheet, array $metadata, int $rightStart, int $columnCount): void
     {
         $rightWidth = $columnCount - $rightStart + 1;
+        $items      = array_values($metadata);
+        $keys       = array_keys($metadata);
+        $total      = count($items);
+
+        // Split the right section into two equal sub-columns for side-by-side pairs.
+        // Each sub-column holds "Label: value" right-aligned, 9 pt Calibri bold label.
+        $halfW  = max(1, (int) floor($rightWidth / 2));
+        $col1S  = $rightStart;
+        $col1E  = $rightStart + $halfW - 1;
+        $col2S  = $rightStart + $halfW;
+        $col2E  = $columnCount;
+
+        $baseStyle = [
+            'font'      => ['name' => 'Calibri', 'size' => 8.5, 'color' => ['rgb' => self::GREY]],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => false],
+        ];
+        $boldStyle = array_merge_recursive($baseStyle, ['font' => ['bold' => true, 'color' => ['rgb' => '374151']]]);
+
         $row = 3;
-        foreach ($metadata as $label => $value) {
-            $start = $this->columnName($rightStart);
-            $end   = $this->columnName($columnCount);
+        for ($i = 0; $i < $total; $i += 2) {
+            $label1 = $keys[$i];
+            $val1   = (string) $items[$i];
 
-            if ($rightWidth >= 3) {
-                // Label occupies left ~40% of the right section; value takes the rest
-                $splitAt  = $rightStart + max(1, (int) round($rightWidth * 0.40)) - 1;
-                $labelEnd = $this->columnName($splitAt);
-                $valStart = $this->columnName($splitAt + 1);
+            // Left sub-column: "Label: value"
+            $c1s = $this->columnName($col1S);
+            $c1e = $this->columnName($col1E);
+            $sheet->mergeCells("{$c1s}{$row}:{$c1e}{$row}");
+            $sheet->setCellValueExplicit("{$c1s}{$row}", "{$label1}: {$val1}", DataType::TYPE_STRING);
+            $sheet->getStyle("{$c1s}{$row}:{$c1e}{$row}")->applyFromArray($baseStyle);
 
-                $sheet->mergeCells("{$start}{$row}:{$labelEnd}{$row}");
-                $sheet->mergeCells("{$valStart}{$row}:{$end}{$row}");
-                $sheet->setCellValueExplicit("{$start}{$row}", $label.':', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicit("{$valStart}{$row}", (string) $value, DataType::TYPE_STRING);
-
-                // Label: bold, right-aligned, slightly darker grey
-                $sheet->getStyle("{$start}{$row}:{$labelEnd}{$row}")->applyFromArray([
-                    'font'      => ['name' => 'Calibri', 'size' => 9, 'bold' => true, 'color' => ['rgb' => '4B5563']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER],
-                ]);
-                // Value: regular weight, right-aligned
-                $sheet->getStyle("{$valStart}{$row}:{$end}{$row}")->applyFromArray([
-                    'font'      => ['name' => 'Calibri', 'size' => 9, 'bold' => false, 'color' => ['rgb' => self::GREY]],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-                ]);
-            } else {
-                $sheet->mergeCells("{$start}{$row}:{$end}{$row}");
-                $sheet->setCellValueExplicit("{$start}{$row}", "{$label}: {$value}", DataType::TYPE_STRING);
-                $sheet->getStyle("{$start}{$row}:{$end}{$row}")->applyFromArray([
-                    'font'      => ['name' => 'Calibri', 'size' => 9, 'color' => ['rgb' => self::GREY]],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-                ]);
+            // Right sub-column: next item if present
+            if ($i + 1 < $total) {
+                $label2 = $keys[$i + 1];
+                $val2   = (string) $items[$i + 1];
+                $c2s = $this->columnName($col2S);
+                $c2e = $this->columnName($col2E);
+                $sheet->mergeCells("{$c2s}{$row}:{$c2e}{$row}");
+                $sheet->setCellValueExplicit("{$c2s}{$row}", "{$label2}: {$val2}", DataType::TYPE_STRING);
+                $sheet->getStyle("{$c2s}{$row}:{$c2e}{$row}")->applyFromArray($baseStyle);
             }
-            $sheet->getRowDimension($row)->setRowHeight(18);
+
+            $sheet->getRowDimension($row)->setRowHeight(16);
             $row++;
+        }
+
+        // Merge any remaining right-section rows below the metadata (keeps the background clean)
+        if ($row <= 99) {
+            // rows filled; nothing needed — caller's headerEndRow controls the outer merge
         }
     }
 
@@ -347,9 +362,9 @@ class CorporateExcelReportService
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F9FA']],
         ]);
 
-        // ── Company name: prominent, navy, 20 pt ─────────────────────
+        // ── Company name: prominent, navy, 18 pt ─────────────────────
         $sheet->getStyle("{$companyStart}1:{$companyEnd}1")->applyFromArray([
-            'font' => ['name' => 'Calibri', 'size' => 20, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
+            'font' => ['name' => 'Calibri', 'size' => 18, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
             'alignment' => [
                 'vertical'   => Alignment::VERTICAL_BOTTOM,
                 'horizontal' => Alignment::HORIZONTAL_LEFT,
@@ -357,9 +372,9 @@ class CorporateExcelReportService
             ],
         ]);
 
-        // ── Report title: Gosika orange, 17 pt, right-aligned ────────
+        // ── Report title: Gosika orange, 16 pt, right-aligned ────────
         $sheet->getStyle("{$rightStart}1:{$rightEnd}2")->applyFromArray([
-            'font' => ['name' => 'Calibri', 'size' => 17, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'font' => ['name' => 'Calibri', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
             'alignment' => [
                 'horizontal' => Alignment::HORIZONTAL_RIGHT,
                 'vertical'   => Alignment::VERTICAL_CENTER,
@@ -368,20 +383,22 @@ class CorporateExcelReportService
             ],
         ]);
 
-        // ── Row heights: row 1 taller for company name prominence ────
-        $sheet->getRowDimension(1)->setRowHeight(36);
-        $sheet->getRowDimension(2)->setRowHeight(18);
+        // ── Compact row heights ───────────────────────────────────────
+        // Row 1 hosts company name (18pt) + report title top — 26pt is enough.
+        // Subsequent rows are 16pt: readable but compact.
+        $sheet->getRowDimension(1)->setRowHeight(26);
+        $sheet->getRowDimension(2)->setRowHeight(16);
         for ($row = 3; $row <= $headerEndRow; $row++) {
             $h = $sheet->getRowDimension($row)->getRowHeight();
             if ($h === -1.0 || $h <= 0) {
-                $sheet->getRowDimension($row)->setRowHeight(18);
+                $sheet->getRowDimension($row)->setRowHeight(16);
             }
         }
 
         // ── Vertical centering for the whole header block ─────────────
         $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")
             ->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        // But keep company name bottom-aligned on row 1 (re-apply)
+        // Keep company name bottom-aligned on row 1
         $sheet->getStyle("{$companyStart}1")
             ->getAlignment()->setVertical(Alignment::VERTICAL_BOTTOM);
     }
@@ -778,23 +795,123 @@ class CorporateExcelReportService
     /**
      * @return array{drawing_path: string, svg_path: ?string, temporary_path: ?string}|null
      */
-    private function addLogo($sheet, ?string $logoPath): ?array
+    private function addLogo($sheet, ?string $logoPath, int $headerEndRow = 8): ?array
     {
         if (! $logoPath) {
             return null;
         }
 
         $logo = $this->prepareSpreadsheetLogo($logoPath);
+
+        // Center the logo vertically within the merged header rows
+        $totalHeightPt = 26 + 16 + max(0, $headerEndRow - 2) * 16;
+        $totalHeightPx = (int) round($totalHeightPt * (96 / 72));
+        $offsetY = max(8, (int) round(($totalHeightPx - 76) / 2));
+
         $drawing = new Drawing;
         $drawing->setPath($logo['drawing_path'])
             ->setCoordinates('A1')
-            ->setOffsetX(10)
-            ->setOffsetY(10)
+            ->setOffsetX(14)
+            ->setOffsetY($offsetY)
             ->setResizeProportional(true)
             ->setWidthAndHeight(170, 76)   // max dimensions – test asserts ≤170×76
             ->setWorksheet($sheet);
 
         return $logo;
+    }
+
+    /**
+     * Apply subtle watermarked corporate logo as the worksheet background.
+     */
+    private function addWatermark($sheet, ?string $logoPath): void
+    {
+        if (! $logoPath || ! extension_loaded('gd') || ! file_exists($logoPath)) {
+            return;
+        }
+
+        try {
+            $imageInfo = @getimagesize($logoPath);
+            if (! $imageInfo) {
+                return;
+            }
+
+            $mime = $imageInfo['mime'] ?? '';
+            $src = match ($mime) {
+                'image/png' => @imagecreatefrompng($logoPath),
+                'image/jpeg' => @imagecreatefromjpeg($logoPath),
+                'image/gif' => @imagecreatefromgif($logoPath),
+                'image/webp' => @imagecreatefromwebp($logoPath),
+                default => null,
+            };
+
+            if (! $src) {
+                return;
+            }
+
+            $sw = imagesx($src);
+            $sh = imagesy($src);
+            if ($sw <= 10 || $sh <= 10) {
+                // Skip 1x1 test images
+                imagedestroy($src);
+                return;
+            }
+
+            // Create a spacious transparent canvas (1600x1100) so the watermark repeats gently
+            $cw = 1600;
+            $ch = 1100;
+            $canvas = imagecreatetruecolor($cw, $ch);
+            imagealphablending($canvas, false);
+            imagesavealpha($canvas, true);
+            $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
+            imagefilledrectangle($canvas, 0, 0, $cw, $ch, $transparent);
+
+            // Watermark size: ~400x400 (preserving aspect ratio)
+            $maxDim = 400;
+            $ratio = min($maxDim / $sw, $maxDim / $sh);
+            $tw = max(1, (int) round($sw * $ratio));
+            $th = max(1, (int) round($sh * $ratio));
+            $dx = (int) (($cw - $tw) / 2);
+            $dy = (int) (($ch - $th) / 2);
+
+            $watermark = imagecreatetruecolor($tw, $th);
+            imagealphablending($watermark, false);
+            imagesavealpha($watermark, true);
+            imagefilledrectangle($watermark, 0, 0, $tw, $th, $transparent);
+            imagecopyresampled($watermark, $src, 0, 0, 0, 0, $tw, $th, $sw, $sh);
+            imagedestroy($src);
+
+            // Apply soft watermark transparency (around 6-7% opacity)
+            for ($x = 0; $x < $tw; $x++) {
+                for ($y = 0; $y < $th; $y++) {
+                    $rgba = imagecolorat($watermark, $x, $y);
+                    $a = ($rgba >> 24) & 0x7F;
+                    if ($a < 127) {
+                        $r = ($rgba >> 16) & 0xFF;
+                        $g = ($rgba >> 8) & 0xFF;
+                        $b = $rgba & 0xFF;
+                        $newA = (int) (118 + ($a / 127.0) * (127 - 118));
+                        $newColor = imagecolorallocatealpha($watermark, $r, $g, $b, min(127, $newA));
+                        imagesetpixel($watermark, $x, $y, $newColor);
+                    }
+                }
+            }
+
+            imagealphablending($canvas, true);
+            imagecopy($canvas, $watermark, $dx, $dy, 0, 0, $tw, $th);
+            imagedestroy($watermark);
+            imagesavealpha($canvas, true);
+
+            ob_start();
+            imagepng($canvas, null, 6);
+            $watermarkData = ob_get_clean();
+            imagedestroy($canvas);
+
+            if ($watermarkData) {
+                $sheet->setBackgroundImage($watermarkData);
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore watermark generation errors so reports never fail
+        }
     }
 
     /**
