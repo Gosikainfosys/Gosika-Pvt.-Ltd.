@@ -318,7 +318,7 @@ class CorporateExcelReportsTest extends TestCase
         $this->assertGreaterThan(0, $logo->getWidth());
         $this->assertGreaterThan(0, $logo->getHeight());
         $this->assertLessThanOrEqual(170, $logo->getWidth());
-        $this->assertLessThanOrEqual(76, $logo->getHeight());
+        $this->assertLessThanOrEqual(150, $logo->getHeight());
         $this->assertNotEmpty($sheet->getMergeCells());
         $filterRange = $sheet->getAutoFilter()->getRange();
         $this->assertNotSame('', $filterRange);

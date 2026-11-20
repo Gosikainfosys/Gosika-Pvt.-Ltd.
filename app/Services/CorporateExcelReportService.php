@@ -92,7 +92,7 @@ class CorporateExcelReportService
 
         $metadata = $this->reportMetadata($report['metadata'] ?? [], $settings);
         $companyLines = $this->companyLines($settings['header']);
-        $headerEndRow = max(6, 2 + count($metadata), 1 + count($companyLines));
+        $headerEndRow = max(8, 2 + count($metadata), 1 + count($companyLines));
 
         // ── 1. HEADER (3-section layout) ────────────────────────────
         // LEFT: logo placeholder (merged single tall cell)
@@ -277,14 +277,27 @@ class CorporateExcelReportService
      */
     private function companyLines(array $header): array
     {
-        $lines = array_filter([
-            $header['trading_name'] ?? null,
-            filled($header['registration_no'] ?? null) ? 'Registration No.: '.$header['registration_no'] : null,
-            filled($header['pan_vat_no'] ?? null) ? 'PAN/VAT: '.$header['pan_vat_no'] : null,
-            $header['address'] ?? null,
+        $regPan = [];
+        if (filled($header['trading_name'] ?? null)) {
+            $regPan[] = $header['trading_name'];
+        }
+        if (filled($header['registration_no'] ?? null)) {
+            $regPan[] = 'Reg. No.: '.$header['registration_no'];
+        }
+        if (filled($header['pan_vat_no'] ?? null)) {
+            $regPan[] = 'PAN/VAT: '.$header['pan_vat_no'];
+        }
+
+        $contacts = array_filter([
             $header['phone'] ?? null,
             $header['email'] ?? null,
             $header['website'] ?? null,
+        ]);
+
+        $lines = array_filter([
+            $regPan !== [] ? implode('  •  ', $regPan) : null,
+            $header['address'] ?? null,
+            $contacts !== [] ? implode('  •  ', $contacts) : null,
         ], fn ($value) => filled($value));
 
         return array_values($lines);
@@ -803,18 +816,20 @@ class CorporateExcelReportService
 
         $logo = $this->prepareSpreadsheetLogo($logoPath);
 
-        // Center the logo vertically within the merged header rows
+        // Fill the corner space: header block rows 1 to headerEndRow
         $totalHeightPt = 26 + 16 + max(0, $headerEndRow - 2) * 16;
         $totalHeightPx = (int) round($totalHeightPt * (96 / 72));
-        $offsetY = max(8, (int) round(($totalHeightPx - 76) / 2));
+        $targetLogoSize = min(140, $totalHeightPx - 16);
+        $offsetY = max(6, (int) round(($totalHeightPx - $targetLogoSize) / 2));
+        $offsetX = 14;
 
         $drawing = new Drawing;
         $drawing->setPath($logo['drawing_path'])
             ->setCoordinates('A1')
-            ->setOffsetX(14)
+            ->setOffsetX($offsetX)
             ->setOffsetY($offsetY)
             ->setResizeProportional(true)
-            ->setWidthAndHeight(170, 76)   // max dimensions – test asserts ≤170×76
+            ->setWidthAndHeight(160, $targetLogoSize)   // fills corner space
             ->setWorksheet($sheet);
 
         return $logo;
@@ -856,17 +871,17 @@ class CorporateExcelReportService
                 return;
             }
 
-            // Create a spacious transparent canvas (1600x1100) so the watermark repeats gently
-            $cw = 1600;
-            $ch = 1100;
+            // Create a spacious transparent canvas (1400x950) so the watermark repeats gently
+            $cw = 1400;
+            $ch = 950;
             $canvas = imagecreatetruecolor($cw, $ch);
             imagealphablending($canvas, false);
             imagesavealpha($canvas, true);
             $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
             imagefilledrectangle($canvas, 0, 0, $cw, $ch, $transparent);
 
-            // Watermark size: ~400x400 (preserving aspect ratio)
-            $maxDim = 400;
+            // Large watermark size: ~700x700 (preserving aspect ratio)
+            $maxDim = 700;
             $ratio = min($maxDim / $sw, $maxDim / $sh);
             $tw = max(1, (int) round($sw * $ratio));
             $th = max(1, (int) round($sh * $ratio));
@@ -880,7 +895,7 @@ class CorporateExcelReportService
             imagecopyresampled($watermark, $src, 0, 0, 0, 0, $tw, $th, $sw, $sh);
             imagedestroy($src);
 
-            // Apply soft watermark transparency (around 6-7% opacity)
+            // Apply soft watermark transparency (around 16-18% opacity - clearly visible watermark)
             for ($x = 0; $x < $tw; $x++) {
                 for ($y = 0; $y < $th; $y++) {
                     $rgba = imagecolorat($watermark, $x, $y);
@@ -889,7 +904,7 @@ class CorporateExcelReportService
                         $r = ($rgba >> 16) & 0xFF;
                         $g = ($rgba >> 8) & 0xFF;
                         $b = $rgba & 0xFF;
-                        $newA = (int) (118 + ($a / 127.0) * (127 - 118));
+                        $newA = (int) (105 + ($a / 127.0) * (127 - 105));
                         $newColor = imagecolorallocatealpha($watermark, $r, $g, $b, min(127, $newA));
                         imagesetpixel($watermark, $x, $y, $newColor);
                     }
