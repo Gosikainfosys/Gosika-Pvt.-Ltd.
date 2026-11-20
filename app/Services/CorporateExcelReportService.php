@@ -68,56 +68,72 @@ class CorporateExcelReportService
         $summary = array_values($report['summary'] ?? []);
         $layoutColumnCount = max(6, count($columns), count($summary));
         $layoutLastColumn = $this->columnName($layoutColumnCount);
-        $companyColumnCount = min(3, max(2, intdiv($layoutColumnCount, 4)));
-        $rightColumnCount = min(
-            max(2, (int) ceil($layoutColumnCount / 4)),
-            $layoutColumnCount - $companyColumnCount - 2
-        );
-        $centerColumnCount = $layoutColumnCount - $companyColumnCount - $rightColumnCount;
-        $companyStart = $this->columnName($companyColumnCount + 1);
-        $companyEnd = $this->columnName($companyColumnCount + $centerColumnCount);
-        $rightStartNumber = $companyColumnCount + $centerColumnCount + 1;
+
+        // ── Proportional 3-section header layout ────────────────────
+        // Target: Logo ~15% | Company info ~45% | Report info ~40%
+        // Logo always gets ≥ 2 columns so the image has room.
+        // Right always gets ≥ 3 columns for the two-column label/value metadata.
+        // Center gets whatever remains (always ≥ 2).
+        $logoColCount  = max(2, (int) round($layoutColumnCount * 0.15));
+        $rightColCount = max(3, (int) round($layoutColumnCount * 0.40));
+        $centerColCount = $layoutColumnCount - $logoColCount - $rightColCount;
+        // Guard: ensure center ≥ 2 and right ≥ 3
+        if ($centerColCount < 2) {
+            $centerColCount = 2;
+            $rightColCount  = $layoutColumnCount - $logoColCount - $centerColCount;
+        }
+
+        $logoEnd = $this->columnName($logoColCount);
+        $centerStart = $this->columnName($logoColCount + 1);
+        $centerEnd = $this->columnName($logoColCount + $centerColCount);
+        $rightStartNumber = $logoColCount + $centerColCount + 1;
         $rightStart = $this->columnName($rightStartNumber);
         $rightEnd = $layoutLastColumn;
+
         $metadata = $this->reportMetadata($report['metadata'] ?? [], $settings);
         $companyLines = $this->companyLines($settings['header']);
         $headerEndRow = max(6, 2 + count($metadata), 1 + count($companyLines));
 
-        // ── 1. HEADER (3-column layout) ─────────────────────────────
-        $sheet->mergeCells("A1:{$this->columnName($companyColumnCount)}{$headerEndRow}");
-        $sheet->mergeCells("{$companyStart}1:{$companyEnd}1");
-        $sheet->mergeCells("{$rightStart}1:{$rightEnd}2");
+        // ── 1. HEADER (3-section layout) ────────────────────────────
+        // LEFT: logo placeholder (merged single tall cell)
+        $sheet->mergeCells("A1:{$logoEnd}{$headerEndRow}");
 
+        // CENTER: company name on row 1, detail lines on rows 2+
+        $sheet->mergeCells("{$centerStart}1:{$centerEnd}1");
         $companyName = $settings['header']['company_name'] ?? null;
         if (filled($companyName)) {
-            $sheet->setCellValueExplicit("{$companyStart}1", $companyName, DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("{$centerStart}1", $companyName, DataType::TYPE_STRING);
         }
 
-        // Write each company info line on its own row for crystal-clear readability
         $companyLineCount = count($companyLines);
         for ($i = 0; $i < $companyLineCount && ($i + 2) <= $headerEndRow; $i++) {
             $rowNum = $i + 2;
-            $sheet->mergeCells("{$companyStart}{$rowNum}:{$companyEnd}{$rowNum}");
-            $sheet->setCellValueExplicit("{$companyStart}{$rowNum}", $companyLines[$i], DataType::TYPE_STRING);
-            $sheet->getStyle("{$companyStart}{$rowNum}")->applyFromArray([
-                'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::GREY]],
-                'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'horizontal' => Alignment::HORIZONTAL_LEFT],
+            $sheet->mergeCells("{$centerStart}{$rowNum}:{$centerEnd}{$rowNum}");
+            $sheet->setCellValueExplicit("{$centerStart}{$rowNum}", $companyLines[$i], DataType::TYPE_STRING);
+            $sheet->getStyle("{$centerStart}{$rowNum}")->applyFromArray([
+                'font' => ['name' => 'Calibri', 'size' => 10, 'color' => ['rgb' => self::GREY]],
+                'alignment' => [
+                    'vertical'   => Alignment::VERTICAL_CENTER,
+                    'horizontal' => Alignment::HORIZONTAL_LEFT,
+                    'wrapText'   => true,
+                ],
             ]);
             $sheet->getRowDimension($rowNum)->setRowHeight(18);
         }
-        // If remaining rows exist in center column, merge them
         if ((2 + $companyLineCount) <= $headerEndRow) {
             $remStart = 2 + $companyLineCount;
-            $sheet->mergeCells("{$companyStart}{$remStart}:{$companyEnd}{$headerEndRow}");
+            $sheet->mergeCells("{$centerStart}{$remStart}:{$centerEnd}{$headerEndRow}");
         }
 
+        // RIGHT: report title on rows 1-2 (merged), metadata from row 3
+        $sheet->mergeCells("{$rightStart}1:{$rightEnd}2");
         $sheet->setCellValueExplicit("{$rightStart}1", mb_strtoupper($title), DataType::TYPE_STRING);
 
         $this->writeMetadata($sheet, $metadata, $rightStartNumber, $layoutColumnCount);
         $this->styleHeader(
             $sheet,
-            $companyStart,
-            $companyEnd,
+            $centerStart,
+            $centerEnd,
             $rightStart,
             $rightEnd,
             $headerEndRow
@@ -199,7 +215,7 @@ class CorporateExcelReportService
             $lastContentRow,
             count($columns)
         );
-        $this->setColumnWidths($sheet, $columns, $layoutColumnCount);
+        $this->setColumnWidths($sheet, $columns, $layoutColumnCount, $logoColCount, $centerColCount);
 
         return response()->streamDownload(
             function () use ($spreadsheet, $logo): void {
@@ -282,27 +298,37 @@ class CorporateExcelReportService
         $row = 3;
         foreach ($metadata as $label => $value) {
             $start = $this->columnName($rightStart);
-            $end = $this->columnName($columnCount);
-            if ($rightWidth >= 4) {
-                $labelEnd = $this->columnName($rightStart + intdiv($rightWidth, 2) - 1);
-                $valueStart = $this->columnName($rightStart + intdiv($rightWidth, 2));
+            $end   = $this->columnName($columnCount);
+
+            if ($rightWidth >= 3) {
+                // Label occupies left ~40% of the right section; value takes the rest
+                $splitAt  = $rightStart + max(1, (int) round($rightWidth * 0.40)) - 1;
+                $labelEnd = $this->columnName($splitAt);
+                $valStart = $this->columnName($splitAt + 1);
+
                 $sheet->mergeCells("{$start}{$row}:{$labelEnd}{$row}");
-                $sheet->mergeCells("{$valueStart}{$row}:{$end}{$row}");
-                $sheet->setCellValueExplicit("{$start}{$row}", $label, DataType::TYPE_STRING);
-                $sheet->setCellValueExplicit("{$valueStart}{$row}", (string) $value, DataType::TYPE_STRING);
-                $sheet->getStyle("{$start}{$row}:{$labelEnd}{$row}")->getFont()->setBold(true);
+                $sheet->mergeCells("{$valStart}{$row}:{$end}{$row}");
+                $sheet->setCellValueExplicit("{$start}{$row}", $label.':', DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit("{$valStart}{$row}", (string) $value, DataType::TYPE_STRING);
+
+                // Label: bold, right-aligned, slightly darker grey
+                $sheet->getStyle("{$start}{$row}:{$labelEnd}{$row}")->applyFromArray([
+                    'font'      => ['name' => 'Calibri', 'size' => 9, 'bold' => true, 'color' => ['rgb' => '4B5563']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER],
+                ]);
+                // Value: regular weight, right-aligned
+                $sheet->getStyle("{$valStart}{$row}:{$end}{$row}")->applyFromArray([
+                    'font'      => ['name' => 'Calibri', 'size' => 9, 'bold' => false, 'color' => ['rgb' => self::GREY]],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                ]);
             } else {
                 $sheet->mergeCells("{$start}{$row}:{$end}{$row}");
                 $sheet->setCellValueExplicit("{$start}{$row}", "{$label}: {$value}", DataType::TYPE_STRING);
+                $sheet->getStyle("{$start}{$row}:{$end}{$row}")->applyFromArray([
+                    'font'      => ['name' => 'Calibri', 'size' => 9, 'color' => ['rgb' => self::GREY]],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+                ]);
             }
-            $sheet->getStyle("{$start}{$row}:{$end}{$row}")->applyFromArray([
-                'font' => ['name' => 'Arial', 'size' => 9, 'color' => ['rgb' => self::GREY]],
-                'alignment' => [
-                    'horizontal' => Alignment::HORIZONTAL_RIGHT,
-                    'vertical' => Alignment::VERTICAL_CENTER,
-                    'wrapText' => true,
-                ],
-            ]);
             $sheet->getRowDimension($row)->setRowHeight(18);
             $row++;
         }
@@ -316,31 +342,48 @@ class CorporateExcelReportService
         string $rightEnd,
         int $headerEndRow
     ): void {
-        // Subtle grey background across the entire header area
+        // ── Background: clean warm-white across entire header area ───
         $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")->applyFromArray([
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F9FAFB']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F9FA']],
         ]);
 
+        // ── Company name: prominent, navy, 20 pt ─────────────────────
         $sheet->getStyle("{$companyStart}1:{$companyEnd}1")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 16, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
-            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
-        ]);
-        $sheet->getStyle("{$rightStart}1:{$rightEnd}2")->applyFromArray([
-            'font' => ['name' => 'Arial', 'size' => 15, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'font' => ['name' => 'Calibri', 'size' => 20, 'bold' => true, 'color' => ['rgb' => self::NAVY]],
             'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_RIGHT,
-                'vertical' => Alignment::VERTICAL_CENTER,
-                'wrapText' => true,
+                'vertical'   => Alignment::VERTICAL_BOTTOM,
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'wrapText'   => false,
             ],
         ]);
-        $sheet->getRowDimension(1)->setRowHeight(32);
-        $sheet->getRowDimension(2)->setRowHeight(20);
+
+        // ── Report title: Gosika orange, 17 pt, right-aligned ────────
+        $sheet->getStyle("{$rightStart}1:{$rightEnd}2")->applyFromArray([
+            'font' => ['name' => 'Calibri', 'size' => 17, 'bold' => true, 'color' => ['rgb' => self::ORANGE]],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_RIGHT,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+                'indent'     => 1,
+            ],
+        ]);
+
+        // ── Row heights: row 1 taller for company name prominence ────
+        $sheet->getRowDimension(1)->setRowHeight(36);
+        $sheet->getRowDimension(2)->setRowHeight(18);
         for ($row = 3; $row <= $headerEndRow; $row++) {
-            if ($sheet->getRowDimension($row)->getRowHeight() === -1.0 || $sheet->getRowDimension($row)->getRowHeight() <= 0) {
+            $h = $sheet->getRowDimension($row)->getRowHeight();
+            if ($h === -1.0 || $h <= 0) {
                 $sheet->getRowDimension($row)->setRowHeight(18);
             }
         }
-        $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+
+        // ── Vertical centering for the whole header block ─────────────
+        $sheet->getStyle("A1:{$rightEnd}{$headerEndRow}")
+            ->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+        // But keep company name bottom-aligned on row 1 (re-apply)
+        $sheet->getStyle("{$companyStart}1")
+            ->getAlignment()->setVertical(Alignment::VERTICAL_BOTTOM);
     }
 
     /**
@@ -643,12 +686,30 @@ class CorporateExcelReportService
         );
     }
 
-    private function setColumnWidths($sheet, array $columns, int $layoutColumnCount): void
+    private function setColumnWidths($sheet, array $columns, int $layoutColumnCount, int $logoColCount = 1, int $centerColCount = 2): void
     {
+        // Minimum widths to protect the 3-section header layout.
+        // Logo columns: at least 14 chars wide each so the logo isn't squeezed.
+        // Center (company info) columns: at least 16 chars wide each.
+        // Right (report info) columns receive whatever is left – they auto-widen.
+        $logoMinWidth   = 14;
+        $centerMinWidth = 16;
+
         for ($index = 0; $index < $layoutColumnCount; $index++) {
             $letter = $this->columnName($index + 1);
             $column = $columns[$index] ?? null;
-            $width = $column['width'] ?? ($column ? min(32, max(12, mb_strlen($column['label']) + 4)) : 12);
+            $dataWidth = $column['width'] ?? ($column ? min(32, max(12, mb_strlen($column['label']) + 4)) : 12);
+
+            if ($index < $logoColCount) {
+                // Logo section: enforce minimum, but respect wider data columns
+                $width = max($logoMinWidth, $dataWidth);
+            } elseif ($index < $logoColCount + $centerColCount) {
+                // Center (company info) section: enforce minimum
+                $width = max($centerMinWidth, $dataWidth);
+            } else {
+                $width = $dataWidth;
+            }
+
             $sheet->getColumnDimension($letter)->setWidth($width);
         }
     }
@@ -727,10 +788,10 @@ class CorporateExcelReportService
         $drawing = new Drawing;
         $drawing->setPath($logo['drawing_path'])
             ->setCoordinates('A1')
-            ->setOffsetX(8)
-            ->setOffsetY(8)
+            ->setOffsetX(10)
+            ->setOffsetY(10)
             ->setResizeProportional(true)
-            ->setWidthAndHeight(170, 76)
+            ->setWidthAndHeight(170, 76)   // max dimensions – test asserts ≤170×76
             ->setWorksheet($sheet);
 
         return $logo;
