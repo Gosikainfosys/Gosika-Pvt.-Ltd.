@@ -1,9 +1,10 @@
 import React from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import PasswordRequirements from '@/Components/PasswordRequirements';
 
 export default function ResetPassword({ token, email }) {
+    const { company } = usePage().props;
     const form = useForm({
         token,
         email,
@@ -21,7 +22,11 @@ export default function ResetPassword({ token, email }) {
             <Head title="Choose a New Password" />
             <div className="w-full max-w-md mx-auto">
                 <div className="text-center mb-8">
-                    <img src="/gosika-icon.svg" alt="GOSIKA" className="h-14 w-14 mx-auto mb-4" />
+                    <img
+                        src={company?.logo_url || '/gosika-logo.svg'}
+                        alt={company?.name || 'GOSIKA'}
+                        className="h-14 max-w-48 object-contain mx-auto mb-4"
+                    />
                     <h1 className="text-2xl font-black text-[#202124]">Choose a new password</h1>
                     <p className="mt-2 text-sm text-gray-500">Use at least 8 characters with an uppercase letter, a number, and a symbol.</p>
                 </div>
