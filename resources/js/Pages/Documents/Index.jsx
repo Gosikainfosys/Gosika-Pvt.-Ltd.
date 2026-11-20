@@ -145,13 +145,13 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {statCards.map(s => (
                         <button type="button" key={s.label} onClick={() => applyFilter(s.cat)}
-                            className={`bg-white border rounded-xl p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow ${activeCategory === s.cat ? 'border-[#FF5500] ring-1 ring-[#FF5500]/30' : 'border-[#E5E7EB]'}`}>
+                            className={`min-w-0 bg-white border rounded-xl p-4 flex items-center gap-3 text-left hover:shadow-md transition-shadow ${activeCategory === s.cat ? 'border-[#FF5500] ring-1 ring-[#FF5500]/30' : 'border-[#E5E7EB]'}`}>
                             <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.bg}`}>
                                 <s.icon size={16} />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="text-lg font-bold text-[#202124]">{s.value}</div>
-                                <div className="text-xs text-gray-500">{s.label}</div>
+                                <div className="text-[10px] leading-tight text-gray-500 sm:text-xs [overflow-wrap:anywhere]">{s.label}</div>
                             </div>
                         </button>
                     ))}
@@ -184,7 +184,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                         {selected ? <FolderOpen size={19} /> : <Folder size={19} />}
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-xs font-semibold text-[#202124]">{category.label}</span>
+                                        <span className="block text-xs font-semibold text-[#202124] [overflow-wrap:anywhere]">{category.label}</span>
                                         <span className="mt-1 block text-xs text-gray-500">{count} {count === 1 ? 'document' : 'documents'}</span>
                                     </span>
                                     <ChevronRight size={16} className="shrink-0 text-gray-400" />
