@@ -6,6 +6,7 @@ use App\Models\Salary;
 use App\Models\Employee;
 use App\Models\CompanySetting;
 use App\Models\AuditLog;
+use App\Services\CorporateExcelReportService;
 use App\Services\SalarySlipService;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
@@ -141,7 +142,7 @@ class PayrollController extends Controller
         $pdf = $salarySlipService->generateBulkPayrollPdf($salaries, $period);
         AuditLog::log('export', 'payroll', null, "Downloaded bulk salary slips PDF for {$period}");
 
-        return $pdf->download("GOSIKA_Payroll_Slips_{$year}_{$month}.pdf");
+        return $pdf->download("payroll_slips_{$year}_{$month}.pdf");
     }
 
     public function exportCsv(Request $request, ReportService $reportService)
@@ -154,7 +155,7 @@ class PayrollController extends Controller
             ->where('year', $year)
             ->get();
 
-        $headers = ['Slip Number', 'Employee Code', 'Employee Name', 'Department', 'Bank Account', 'Basic Salary (NPR)', 'Allowances', 'Gross Salary', 'Tax TDS', 'Provident Fund', 'Total Deductions', 'Net Salary Payable', 'Status'];
+        $headers = ['Slip Number', 'Employee Code', 'Employee Name', 'Department', 'Bank Account', 'Basic Salary', 'Allowances', 'Gross Salary', 'Tax TDS', 'Provident Fund', 'Total Deductions', 'Net Salary Payable', 'Status'];
         $rows = [];
 
         foreach ($salaries as $sal) {
@@ -177,6 +178,80 @@ class PayrollController extends Controller
 
         AuditLog::log('export', 'payroll', null, "Exported payroll ledger to CSV for {$year}-{$month}");
 
-        return $reportService->generateCsvResponse("gosika_payroll_{$year}_{$month}.csv", $headers, $rows);
+        return $reportService->generateCsvResponse("payroll_{$year}_{$month}.csv", $headers, $rows);
+    }
+
+    public function exportXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $month = (int) $request->input('month', Carbon::now()->month);
+        $year = (int) $request->input('year', Carbon::now()->year);
+        $salaries = Salary::with(['employee.department', 'employee.designation'])
+            ->where('month', $month)
+            ->where('year', $year)
+            ->get();
+
+        $rows = [];
+        foreach ($salaries as $salary) {
+            $rows[] = [
+                $salary->slip_number,
+                $salary->employee->employee_code,
+                $salary->employee->full_name,
+                $salary->employee->department->name ?? null,
+                $salary->employee->bank_account_no,
+                (float) $salary->basic_salary,
+                (float) $salary->allowances,
+                (float) $salary->gross_salary,
+                (float) $salary->tax_deduction,
+                (float) $salary->provident_fund,
+                (float) $salary->total_deductions,
+                (float) $salary->net_salary,
+                strtoupper($salary->status),
+            ];
+        }
+
+        AuditLog::log('export', 'payroll', null, "Exported payroll ledger to XLSX for {$year}-{$month}");
+
+        return $reportService->download([
+            'filename' => "payroll_{$year}_{$month}.xlsx",
+            'title' => 'Payroll Ledger',
+            'metadata' => ['Period' => Carbon::createFromDate($year, $month, 1)->format('F Y')],
+            'columns' => [
+                ['label' => 'Slip Number', 'width' => 19],
+                ['label' => 'Employee Code', 'width' => 17],
+                ['label' => 'Employee Name', 'width' => 24],
+                ['label' => 'Department', 'width' => 20],
+                ['label' => 'Bank Account', 'width' => 22],
+                ['label' => 'Basic Salary', 'format' => 'currency', 'width' => 17],
+                ['label' => 'Allowances', 'format' => 'currency', 'width' => 16],
+                ['label' => 'Gross Salary', 'format' => 'currency', 'width' => 17],
+                ['label' => 'Tax TDS', 'format' => 'currency', 'width' => 15],
+                ['label' => 'Provident Fund', 'format' => 'currency', 'width' => 18],
+                ['label' => 'Total Deductions', 'format' => 'currency', 'width' => 19],
+                ['label' => 'Net Salary Payable', 'format' => 'currency', 'width' => 21],
+                ['label' => 'Status', 'width' => 14],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Payroll Records', 'value' => $salaries->count(), 'format' => 'number'],
+                ['label' => 'Gross Payroll', 'value' => (float) $salaries->sum('gross_salary'), 'format' => 'currency'],
+                ['label' => 'Net Salary Payable', 'value' => (float) $salaries->sum('net_salary'), 'format' => 'currency'],
+                ['label' => 'Paid Amount', 'value' => (float) $salaries->where('status', 'paid')->sum('net_salary'), 'format' => 'currency'],
+                ['label' => 'Outstanding Amount', 'value' => (float) $salaries->where('status', 'pending')->sum('net_salary'), 'format' => 'currency'],
+            ],
+            'totals' => [
+                'label' => 'PAYROLL TOTALS',
+                'formulas' => [
+                    5 => 'sum',
+                    6 => 'sum',
+                    7 => 'sum',
+                    8 => 'sum',
+                    9 => 'sum',
+                    10 => 'sum',
+                    11 => 'sum',
+                ],
+            ],
+            'signatures' => true,
+            'orientation' => 'landscape',
+        ]);
     }
 }

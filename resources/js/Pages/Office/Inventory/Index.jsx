@@ -13,7 +13,8 @@ import {
     ArrowUp,
     RefreshCw,
     History,
-    Pencil
+    Pencil,
+    Download
 } from 'lucide-react';
 
 export default function Index({ items, suppliers, stats, filters }) {
@@ -26,6 +27,11 @@ export default function Index({ items, suppliers, stats, filters }) {
     const [search, setSearch] = useState(filters.search || '');
     const [category, setCategory] = useState(filters.category || '');
     const [lowStock, setLowStock] = useState(filters.low_stock || false);
+    const exportParams = new URLSearchParams();
+    if (filters.search) exportParams.set('search', filters.search);
+    if (filters.category) exportParams.set('category', filters.category);
+    if (filters.low_stock) exportParams.set('low_stock', '1');
+    const exportHref = `/inventory/export-xlsx${exportParams.toString() ? `?${exportParams}` : ''}`;
 
     const form = useForm({
         name: '',
@@ -144,7 +150,14 @@ export default function Index({ items, suppliers, stats, filters }) {
                         Manage stationeries, print media, ID card blanks, pantry provisions, and stock levels
                     </p>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
+                    <a
+                        href={exportHref}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#202124] bg-white border border-gray-200 hover:border-[#FF5500] rounded-lg transition"
+                    >
+                        <Download className="h-4 w-4" />
+                        <span>Export Excel</span>
+                    </a>
                     <button
                         onClick={handleOpenCreate}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#FF5500] hover:bg-[#E04B00] rounded-lg shadow-xs transition"

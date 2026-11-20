@@ -4,24 +4,28 @@
     $maskedAccountNumber = $accountNumber === ''
         ? 'N/A'
         : str_repeat('*', max(0, strlen($accountNumber) - 4)) . substr($accountNumber, -4);
-    $currency = $company->default_currency ?: 'NPR';
-    $currencySymbol = $company->currency_symbol ?: $currency;
+    $header = $reportSettings['header'];
+    $footer = $reportSettings['footer'];
+    $footerContacts = collect([$footer['phone'], $footer['email'], $footer['website']])
+        ->filter(fn ($value) => filled($value))
+        ->values();
+    $currency = $reportSettings['currency'];
+    $currencySymbol = $reportSettings['currency_symbol'] ?: $currency;
 @endphp
 <table class="header">
     <tr>
         <td class="brand-cell">
-            @if($company->logo_path && file_exists(public_path('storage/' . $company->logo_path)))
-                <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo" alt="Company logo">
-            @else
-                <span class="company-name">{{ $company->trading_name ?: $company->company_name }}</span>
+            @if($reportSettings['logo_path'])
+                <img src="{{ $reportSettings['logo_path'] }}" class="logo" alt="{{ $header['company_name'] ?: 'Company logo' }}">
             @endif
             <div class="company-details">
-                <strong>{{ $company->company_name }}</strong><br>
-                {{ $company->address }}{{ $company->city ? ', ' . $company->city : '' }}{{ $company->country ? ', ' . $company->country : '' }}<br>
-                @if($company->phone) {{ $company->phone }} @endif
-                @if($company->email) &nbsp;|&nbsp; {{ $company->email }} @endif
-                @if($company->website) &nbsp;|&nbsp; {{ $company->website }} @endif
-                @if($company->pan_vat_no)<br>PAN/VAT: {{ $company->pan_vat_no }}@endif
+                @if($header['company_name'])<strong>{{ $header['company_name'] }}</strong><br>@endif
+                @if($header['trading_name']){{ $header['trading_name'] }}<br>@endif
+                @if($header['registration_no'])Registration No.: {{ $header['registration_no'] }}<br>@endif
+                @if($header['pan_vat_no'])PAN/VAT: {{ $header['pan_vat_no'] }}<br>@endif
+                @foreach(['address', 'phone', 'email', 'website'] as $field)
+                    @if($header[$field]){{ $header[$field] }}@if(!$loop->last)<br>@endif @endif
+                @endforeach
             </div>
         </td>
         <td class="title-cell">
@@ -124,8 +128,8 @@
             Please contact HR if you have any questions about this salary statement.
         </td>
         <td class="signature-cell">
-            @if($company->stamp_signature_path && file_exists(public_path('storage/' . $company->stamp_signature_path)))
-                <img src="{{ public_path('storage/' . $company->stamp_signature_path) }}" class="signature-image" alt="Authorized signature">
+            @if($reportSettings['stamp_signature_path'])
+                <img src="{{ $reportSettings['stamp_signature_path'] }}" class="signature-image" alt="Authorized signature">
             @endif
             <div class="signature-line"></div>
             <strong>Authorized Signature</strong><br>HR / Finance Department
@@ -140,8 +144,8 @@
 
 <table class="footer-bar">
     <tr>
-        <td class="footer-left">{{ $company->company_name }}@if($company->website) &nbsp;|&nbsp; {{ $company->website }}@endif</td>
-        <td class="footer-center">Confidential — For Official Use Only</td>
-        <td class="footer-right">Generated {{ now()->format('Y-m-d') }}</td>
+        <td class="footer-left">{{ $footer['text'] }}</td>
+        <td class="footer-center">{{ $footerContacts->implode(' | ') }}</td>
+        <td class="footer-right">Generated {{ $generatedAt->format('Y-m-d') }}</td>
     </tr>
 </table>

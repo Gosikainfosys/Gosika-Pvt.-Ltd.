@@ -4,9 +4,7 @@ import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
     const { company, flash } = usePage().props;
-    const companyLocation = [company?.address, company?.city, company?.country]
-        .filter(Boolean)
-        .join(', ');
+    const companyLocation = company?.address || [company?.city, company?.country].filter(Boolean).join(', ');
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',

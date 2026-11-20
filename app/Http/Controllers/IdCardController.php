@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\EmployeeIdCard;
-use App\Models\CompanySetting;
 use App\Models\AuditLog;
 use App\Services\IdCardService;
 use Illuminate\Http\Request;
@@ -28,8 +27,6 @@ class IdCardController extends Controller
             : $employees->first();
 
         $qrCodeUri = $selectedEmployee ? $idCardService->generateQrCodeDataUri($selectedEmployee) : null;
-        $company = CompanySetting::current();
-
         $idCardHistory = EmployeeIdCard::with('employee')
             ->latest('id')
             ->limit(10)
@@ -40,7 +37,6 @@ class IdCardController extends Controller
             'selectedEmployee' => $selectedEmployee,
             'qrCodeUri' => $qrCodeUri,
             'currentTemplate' => $template,
-            'company' => $company,
             'idCardHistory' => $idCardHistory,
         ]);
     }
@@ -71,7 +67,7 @@ class IdCardController extends Controller
         $pdf = $idCardService->generateA4SheetPdf($employees, $template);
         AuditLog::log('id_card_generate', 'employee_id_cards', null, "Downloaded A4 Bulk ID Card Sheet (" . $employees->count() . " cards)");
 
-        return $pdf->download("GOSIKA_ID_Cards_A4_Sheet.pdf");
+        return $pdf->download('employee_id_cards_a4_sheet.pdf');
     }
 
     public function reissue(Request $request, Employee $employee)

@@ -11,6 +11,7 @@ use App\Models\LeaveRequest;
 use App\Models\Salary;
 use App\Models\Document;
 use App\Models\AuditLog;
+use App\Services\CorporateExcelReportService;
 use App\Services\ReportService;
 use App\Services\IdCardService;
 use Illuminate\Http\Request;
@@ -225,7 +226,7 @@ class EmployeeController extends Controller
     {
         $employees = Employee::with(['department', 'designation'])->get();
 
-        $headers = ['Employee Code', 'Full Name', 'Department', 'Designation', 'Email', 'Phone', 'Employment Type', 'Joining Date', 'Basic Salary (NPR)', 'Status'];
+        $headers = ['Employee Code', 'Full Name', 'Department', 'Designation', 'Email', 'Phone', 'Employment Type', 'Joining Date', 'Basic Salary', 'Status'];
         $rows = [];
 
         foreach ($employees as $emp) {
@@ -245,6 +246,55 @@ class EmployeeController extends Controller
 
         AuditLog::log('export', 'employees', null, 'Exported employee directory to CSV');
 
-        return $reportService->generateCsvResponse('gosika_employees_' . date('Y_m_d') . '.csv', $headers, $rows);
+        return $reportService->generateCsvResponse('employees_' . date('Y_m_d') . '.csv', $headers, $rows);
+    }
+
+    public function exportXlsx(CorporateExcelReportService $reportService)
+    {
+        $employees = Employee::with(['department', 'designation'])->get();
+        $rows = [];
+
+        foreach ($employees as $employee) {
+            $rows[] = [
+                $employee->employee_code,
+                $employee->full_name,
+                $employee->department->name ?? null,
+                $employee->designation->title ?? null,
+                $employee->email,
+                $employee->phone,
+                strtoupper(str_replace('_', ' ', $employee->employment_type)),
+                $employee->joining_date,
+                $employee->basic_salary === null ? null : (float) $employee->basic_salary,
+                strtoupper($employee->status),
+            ];
+        }
+
+        AuditLog::log('export', 'employees', null, 'Exported employee directory to XLSX');
+
+        return $reportService->download([
+            'filename' => 'employees_' . date('Y_m_d') . '.xlsx',
+            'title' => 'Employee Directory',
+            'metadata' => ['Period' => 'All Records'],
+            'columns' => [
+                ['label' => 'Employee Code', 'width' => 17],
+                ['label' => 'Full Name', 'width' => 24],
+                ['label' => 'Department', 'width' => 20],
+                ['label' => 'Designation', 'width' => 20],
+                ['label' => 'Email', 'width' => 28],
+                ['label' => 'Phone', 'width' => 17],
+                ['label' => 'Employment Type', 'width' => 18],
+                ['label' => 'Joining Date', 'format' => 'date', 'width' => 15],
+                ['label' => 'Basic Salary', 'format' => 'currency', 'width' => 17],
+                ['label' => 'Status', 'width' => 14],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total Employees', 'value' => $employees->count(), 'format' => 'number'],
+                ['label' => 'Active Employees', 'value' => $employees->where('status', 'active')->count(), 'format' => 'number'],
+                ['label' => 'Basic Salary Total', 'value' => (float) $employees->sum('basic_salary'), 'format' => 'currency'],
+            ],
+            'totals' => ['label' => 'TOTAL BASIC SALARY', 'formulas' => [8 => 'sum']],
+            'orientation' => 'landscape',
+        ]);
     }
 }

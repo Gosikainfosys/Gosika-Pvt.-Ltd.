@@ -65,6 +65,7 @@ Route::middleware('auth')->group(function () {
 
     // HR - Employees
     Route::get('/employees/export-csv', [EmployeeController::class, 'exportCsv'])->name('employees.export.csv');
+    Route::get('/employees/export-xlsx', [EmployeeController::class, 'exportXlsx'])->name('employees.export.xlsx');
     Route::resource('employees', EmployeeController::class);
 
     // HR - Departments & Designations
@@ -82,6 +83,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/attendance/history', [AttendanceController::class, 'history'])->name('attendance.history');
     Route::put('/attendance/{attendance}', [AttendanceController::class, 'update'])->name('attendance.update');
     Route::get('/attendance/export-csv', [AttendanceController::class, 'exportCsv'])->name('attendance.export.csv');
+    Route::get('/attendance/export-xlsx', [AttendanceController::class, 'exportXlsx'])->name('attendance.export.xlsx');
 
     // HR - Leave
     Route::get('/leave-management', [LeaveController::class, 'index'])->name('leave.index');
@@ -100,6 +102,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/payroll/{salary}/pdf', [PayrollController::class, 'downloadSlipPdf'])->name('payroll.slip.pdf');
     Route::get('/payroll/bulk-pdf', [PayrollController::class, 'downloadBulkPdf'])->name('payroll.bulk.pdf');
     Route::get('/payroll/export-csv', [PayrollController::class, 'exportCsv'])->name('payroll.export.csv');
+    Route::get('/payroll/export-xlsx', [PayrollController::class, 'exportXlsx'])->name('payroll.export.xlsx');
 
     // HR - Employee ID Cards Studio
     Route::get('/employee-id-cards', [IdCardController::class, 'index'])->name('idcards.index');
@@ -130,13 +133,18 @@ Route::middleware('auth')->group(function () {
 
     // Finance (Separate from Marketplace)
     Route::get('/finance', [FinanceController::class, 'dashboard'])->name('finance.dashboard');
+    Route::get('/finance/income/export-xlsx', [FinanceController::class, 'downloadIncomeReportXlsx'])->name('finance.income.report.xlsx');
     Route::get('/finance/income', [FinanceController::class, 'incomeIndex'])->name('finance.income');
     Route::post('/finance/income', [FinanceController::class, 'storeIncome'])->name('finance.income.store');
     Route::get('/finance/expenses', [FinanceController::class, 'expenseIndex'])->name('finance.expenses');
     Route::post('/finance/expenses', [FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
     Route::get('/finance/expenses/report-pdf', [FinanceController::class, 'downloadExpenseReportPdf'])->name('finance.expenses.report.pdf');
+    Route::get('/finance/expenses/report', [FinanceController::class, 'showExpenseReport'])->name('finance.expenses.report');
+    Route::get('/finance/expenses/report-xlsx', [FinanceController::class, 'downloadExpenseReportXlsx'])->name('finance.expenses.report.xlsx');
     Route::get('/finance/statements', [FinanceController::class, 'statements'])->name('finance.statements');
     Route::get('/finance/statements/pdf', [FinanceController::class, 'downloadStatementPdf'])->name('finance.statements.pdf');
+    Route::get('/finance/statements/preview', [FinanceController::class, 'showStatement'])->name('finance.statements.preview');
+    Route::get('/finance/statements/xlsx', [FinanceController::class, 'downloadStatementXlsx'])->name('finance.statements.xlsx');
     Route::get('/finance/categories', [FinanceController::class, 'categories'])->name('finance.categories');
     Route::post('/finance/categories', [FinanceController::class, 'storeCategory'])->name('finance.categories.store');
 
@@ -147,6 +155,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/assets/{asset}/maintenance', [AssetController::class, 'storeMaintenance'])->name('assets.maintenance.store');
 
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('/inventory/export-xlsx', [InventoryController::class, 'downloadXlsx'])->name('inventory.export.xlsx');
     Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
     Route::put('/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('inventory.update');
     Route::post('/inventory/{inventoryItem}/adjust', [InventoryController::class, 'stockAdjustment'])->name('inventory.adjust');
@@ -186,7 +195,9 @@ Route::middleware('auth')->group(function () {
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/{type}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('/reports/{type}/pdf', [ReportController::class, 'downloadPdf'])->name('reports.pdf');
+    Route::get('/reports/{type}/xlsx', [ReportController::class, 'downloadXlsx'])->name('reports.xlsx');
 
     // System
     Route::get('/company-settings', [CompanySettingController::class, 'index'])->name('settings.index');

@@ -109,11 +109,11 @@ export default function Index({
                         <span>Monthly Calendar View</span>
                     </Link>
                     <a
-                        href="/attendance/export-csv"
+                        href={`/attendance/export-xlsx?month=${date.slice(5, 7)}&year=${date.slice(0, 4)}`}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg shadow-2xs transition"
                     >
                         <Download className="h-4 w-4" />
-                        <span>Export CSV</span>
+                        <span>Export Excel</span>
                     </a>
                 </div>
             </div>

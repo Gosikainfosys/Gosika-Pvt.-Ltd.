@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentTemplateVersion;
 use App\Models\Employee;
-use App\Models\CompanySetting;
 use App\Models\AuditLog;
+use App\Services\CorporateReportSettingsService;
 use App\Services\DocumentGenerationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,10 +15,14 @@ use Illuminate\Support\Str;
 class DocumentTemplateController extends Controller
 {
     protected DocumentGenerationService $docService;
+    protected CorporateReportSettingsService $corporateSettings;
 
-    public function __construct(DocumentGenerationService $docService)
-    {
+    public function __construct(
+        DocumentGenerationService $docService,
+        CorporateReportSettingsService $corporateSettings
+    ) {
         $this->docService = $docService;
+        $this->corporateSettings = $corporateSettings;
     }
 
     /**
@@ -113,7 +117,6 @@ class DocumentTemplateController extends Controller
             'template' => $document_template,
             'availableVariables' => $availableVariables,
             'employees' => $employees,
-            'company' => CompanySetting::current(),
         ]);
     }
 
@@ -306,7 +309,8 @@ class DocumentTemplateController extends Controller
             ]);
         }
 
-        $variables = $this->docService->compileVariables($employee);
+        $reportSettings = $this->corporateSettings->forReport();
+        $variables = $this->docService->compileVariables($employee, [], $reportSettings);
         $designConfig = $draft['design_config'] ?? $document_template->design_config;
         $sectionsData = $draft['sections_data'] ?? $document_template->sections_data;
         $design = array_merge(DocumentTemplate::defaultDesignConfig(), $designConfig ?: []);
@@ -330,8 +334,12 @@ class DocumentTemplateController extends Controller
             'v' => $cleanVars,
             'docNumber' => $docNumber,
             'agreementNumber' => 'GOS-BOND-' . $codeNum,
-            'company' => CompanySetting::current(),
-            'logoBase64' => $this->docService->getLogoBase64(),
+            'company' => $reportSettings['company'],
+            'reportSettings' => $reportSettings,
+            'logoBase64' => $this->docService->getLogoBase64($reportSettings),
+            'iconBase64' => $this->docService->getIconBase64($reportSettings),
+            'watermarkBase64' => $this->docService->getWatermarkBase64($reportSettings),
+            'stampBase64' => $this->docService->getStampBase64($reportSettings),
         ];
 
         $viewName = $document_template->type === 'employment_bond'

@@ -86,6 +86,13 @@ export default function Index({ expenses, categories, filters }) {
                         <Printer className="h-4 w-4" />
                         <span>Download Audit Report (PDF)</span>
                     </a>
+                    <a
+                        href={`/finance/expenses/report-xlsx?start_date=${startDate}&end_date=${endDate}&category_id=${categoryId}`}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 rounded-lg shadow-2xs transition"
+                    >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        <span>Export Excel</span>
+                    </a>
                     <button
                         onClick={() => setModalOpen(true)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-xs transition"

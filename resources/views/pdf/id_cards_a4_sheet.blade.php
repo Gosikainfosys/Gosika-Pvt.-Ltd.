@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>GOSIKA Bulk Employee ID Cards Sheet (A4 Portrait)</title>
+    <title>{{ $reportSettings['header']['company_name'] ?: 'Employee' }} ID Cards Sheet</title>
     <style>
         @page {
             margin: 12mm 14mm;
@@ -198,9 +198,19 @@
     </style>
 </head>
 <body>
+    @php
+        $header = $reportSettings['header'];
+        $footer = $reportSettings['footer'];
+    @endphp
 
     <div class="sheet-header">
-        <div class="sheet-title">GOSIKA &bull; Employee ID Cards Print Sheet</div>
+        <div class="sheet-title">
+            @if($header['company_name']){{ $header['company_name'] }} &bull; @endif
+            Employee ID Cards Print Sheet
+        </div>
+        @if($footer['text'])
+            <div class="sheet-sub">{{ $footer['text'] }}</div>
+        @endif
         <div class="sheet-sub">Standard CR80 Landscape Badges (85.60mm &times; 53.98mm) &bull; Crop along dashed guides</div>
     </div>
 
@@ -213,11 +223,10 @@
                 <div class="card-box">
                     <div class="top-accent"></div>
                     <div class="header">
-                        @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                            <img src="{{ public_path('storage/' . $company->logo_path) }}" style="max-height: 12pt; max-width: 50pt;" alt="Logo">
-                        @else
-                            <div class="company-name">GOSIKA <span>OFFICE</span></div>
-                            <div class="company-sub">Employee Identity</div>
+                        @if($reportSettings['logo_path'])
+                            <img src="{{ $reportSettings['logo_path'] }}" style="max-height: 12pt; max-width: 50pt; object-fit: contain;" alt="{{ $header['company_name'] ?: 'Company logo' }}">
+                        @elseif($header['company_name'])
+                            <div class="company-name">{{ $header['company_name'] }}</div>
                         @endif
                     </div>
 
@@ -255,7 +264,7 @@
                     </div>
 
                     <div class="footer-banner">
-                        {{ $company->website ?? 'https://gosika.com' }}
+                        {{ $footer['website'] ?: $footer['text'] }}
                     </div>
                 </div>
             </td>

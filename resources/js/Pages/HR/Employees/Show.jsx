@@ -44,7 +44,9 @@ export default function Show({
 }) {
     const [activeTab, setActiveTab] = useState(tab);
     const { company } = usePage().props;
-    const companyLocation = [company?.address, company?.city, company?.country].filter(Boolean).join(', ');
+    const companyLocation = company?.address || [company?.city, company?.country].filter(Boolean).join(', ');
+    const currencyLabel = company?.currency_symbol || company?.currency || '';
+    const formatCurrency = (amount) => `${currencyLabel ? `${currencyLabel} ` : ''}${Number(amount).toLocaleString()}`;
 
     // Modals for Employee Documents handling
     const [previewDoc, setPreviewDoc] = useState(null);
@@ -112,9 +114,9 @@ export default function Show({
             joining_date: snap['{{employee.joining_date}}'] || employee.joining_date || '',
             probation_period: snap['{{employee.probation_period}}'] || '3 Months',
             reporting_manager: snap['{{employee.reporting_manager}}'] || '',
-            work_location: snap['{{employee.work_location}}'] || 'Kathmandu Office',
+            work_location: snap['{{employee.work_location}}'] || (company?.city ? `${company.city} Office` : ''),
             working_schedule: snap['{{employee.working_schedule}}'] || '9 AM – 6 PM',
-            salary: snap['{{employee.salary}}'] || (employee.basic_salary ? `NPR ${employee.basic_salary}` : ''),
+            salary: snap['{{employee.salary}}'] || (employee.basic_salary ? formatCurrency(employee.basic_salary) : ''),
             payment_method: snap['{{employee.payment_method}}'] || 'Bank Transfer',
 
             primary_responsibilities: snap['{{employee.primary_responsibilities}}'] || '',
@@ -125,11 +127,11 @@ export default function Show({
             authorized_system_access: snap['{{employee.authorized_system_access}}'] || '',
             department_head: snap['{{employee.department_head}}'] || '',
 
-            hr_representative_name: snap['{{hr.representative_name}}'] || 'HR Representative',
+            hr_representative_name: snap['{{hr.representative_name}}'] || '',
             registration_date: snap['{{employee.registration_date}}'] || '',
             agreement_number: snap['{{agreement.number}}'] || '',
             agreement_date: snap['{{agreement.date}}'] || '',
-            authorized_representative: snap['{{company.authorized_representative}}'] || 'Bikash Pandey',
+            authorized_representative: snap['{{company.authorized_representative}}'] || '',
             company_address: snap['{{company.address}}'] || '',
         });
     };
@@ -345,7 +347,7 @@ export default function Show({
                         <div className="space-y-3 text-xs">
                             <div>
                                 <span className="text-gray-400">Current Residence:</span>
-                                <p className="font-semibold text-gray-800">{employee.current_address || 'Tinkune, Kathmandu'}</p>
+                                <p className="font-semibold text-gray-800">{employee.current_address || 'Not provided'}</p>
                             </div>
                             <div>
                                 <span className="text-gray-400">Permanent Address:</span>
@@ -395,7 +397,7 @@ export default function Show({
                             <div>
                                 <span className="text-gray-400">Basic Monthly Salary:</span>
                                 <p className="font-black text-[#FF5500] text-base font-mono">
-                                    {employee.basic_salary === null ? 'Not set' : `NPR ${Number(employee.basic_salary).toLocaleString()}`}
+                                    {employee.basic_salary === null ? 'Not set' : formatCurrency(employee.basic_salary)}
                                 </p>
                             </div>
                             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
@@ -441,8 +443,8 @@ export default function Show({
                                 {company?.logo_url ? (
                                     <img src={company.logo_url} alt={company.name || 'Company logo'} className="h-6 max-w-[120px] mx-auto object-contain" />
                                 ) : (
-                                    <span className="text-xs font-black text-gray-900 tracking-tight block">
-                                        {company?.trading_name || company?.name || 'GOSIKA'}
+                                    company?.company_name && <span className="text-xs font-black text-gray-900 tracking-tight block">
+                                        {company.company_name}
                                     </span>
                                 )}
                                 <p className="text-[6.5px] text-gray-400 uppercase font-bold tracking-wider">Employee Identity Badge</p>
@@ -491,7 +493,7 @@ export default function Show({
                             )}
 
                             <div className="bg-[#202124] -mx-3 -mb-3 px-2 py-1 flex items-center justify-between text-[6.5px] text-gray-300">
-                                <span>gosika.com</span>
+                                <span>{company?.website || company?.report_footer_text}</span>
                                 <span className="text-[#FF5500] font-bold">AUTHORIZED</span>
                             </div>
                         </div>
@@ -502,7 +504,11 @@ export default function Show({
 
                             <div className="pt-2 text-center">
                                 <div className="w-10 h-1 mx-auto bg-gray-200 rounded-full border border-dashed border-gray-400 mb-1.5" />
-                                <span className="text-[8px] font-black text-gray-900 uppercase block">Property of GOSIKA</span>
+                                {(company?.trading_name || company?.company_name) && (
+                                    <span className="text-[8px] font-black text-gray-900 uppercase block">
+                                        Property of {company.trading_name || company.company_name}
+                                    </span>
+                                )}
                                 <span className="text-[6.5px] text-gray-500">Please return if found</span>
                             </div>
 
@@ -526,7 +532,7 @@ export default function Show({
                             </div>
 
                             <div className="bg-[#FF5500] -mx-3 -mb-3 px-2 py-1 text-center text-[6.5px] text-white font-bold uppercase tracking-wider">
-                                OFFICIAL COMPANY RECORD
+                                {company?.report_footer_text}
                             </div>
                         </div>
                     </div>
@@ -960,7 +966,9 @@ export default function Show({
                             <tr>
                                 <th className="px-5 py-2.5 text-left font-bold text-gray-500">Slip Number</th>
                                 <th className="px-5 py-2.5 text-left font-bold text-gray-500">Period</th>
-                                <th className="px-5 py-2.5 text-left font-bold text-gray-500">Gross (NPR)</th>
+                                <th className="px-5 py-2.5 text-left font-bold text-gray-500">
+                                    Gross{currencyLabel ? ` (${currencyLabel})` : ''}
+                                </th>
                                 <th className="px-5 py-2.5 text-left font-bold text-gray-500">Deductions</th>
                                 <th className="px-5 py-2.5 text-left font-bold text-gray-500">Net Paid</th>
                                 <th className="px-5 py-2.5 text-right font-bold text-gray-500">Action</th>
@@ -973,7 +981,7 @@ export default function Show({
                                     <td className="px-5 py-2.5 font-semibold text-gray-700">{sal.salary_period}</td>
                                     <td className="px-5 py-2.5 font-mono">{Number(sal.gross_salary).toLocaleString()}</td>
                                     <td className="px-5 py-2.5 font-mono text-red-600">- {Number(sal.total_deductions).toLocaleString()}</td>
-                                    <td className="px-5 py-2.5 font-mono font-bold text-emerald-600">NPR {Number(sal.net_salary).toLocaleString()}</td>
+                                    <td className="px-5 py-2.5 font-mono font-bold text-emerald-600">{formatCurrency(sal.net_salary)}</td>
                                     <td className="px-5 py-2.5 text-right">
                                         <a
                                             href={`/payroll/${sal.id}/pdf`}
@@ -1422,7 +1430,7 @@ export default function Show({
                                             <label className="block text-[11px] font-bold text-gray-600 mb-1">Monthly Salary</label>
                                             <input
                                                 type="text"
-                                                placeholder="NPR 50,000"
+                                                placeholder={`${currencyLabel} 50,000`.trim()}
                                                 value={statusForm.salary || ''}
                                                 onChange={(e) => setStatusForm({ ...statusForm, salary: e.target.value })}
                                                 className="w-full border border-gray-300 rounded p-1.5 text-xs font-medium"

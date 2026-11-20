@@ -27,6 +27,7 @@ export default function CompanySettings({ settings, backups }) {
         trading_name: settings?.trading_name ?? '',
         registration_no: settings?.registration_no ?? '',
         pan_vat_no: settings?.pan_vat_no ?? '',
+        report_footer_text: settings?.report_footer_text ?? '',
         email: settings?.email ?? '',
         phone: settings?.phone ?? '',
         website: settings?.website ?? '',
@@ -289,6 +290,27 @@ export default function CompanySettings({ settings, backups }) {
                                     icon={Globe}
                                     placeholder="Nepal"
                                 />
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-xs font-semibold text-[#202124] mb-1">
+                                    Report Footer Text
+                                </label>
+                                <textarea
+                                    value={data.report_footer_text}
+                                    onChange={(e) => setData('report_footer_text', e.target.value)}
+                                    rows={3}
+                                    maxLength={2000}
+                                    placeholder="Optional footer text for generated reports"
+                                    className={`w-full px-3 py-2 text-xs border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF5500]/30 focus:border-[#FF5500] transition resize-y ${
+                                        errors.report_footer_text ? 'border-red-400 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                />
+                                <p className="text-[11px] text-gray-500 mt-1">
+                                    Used on newly generated reports; leave blank to omit custom footer text.
+                                </p>
+                                {errors.report_footer_text && (
+                                    <p className="mt-1 text-[11px] text-red-500">{errors.report_footer_text}</p>
+                                )}
                             </div>
                         </div>
 

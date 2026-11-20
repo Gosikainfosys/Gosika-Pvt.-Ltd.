@@ -226,11 +226,20 @@
     </style>
 </head>
 <body>
+@php
+    $header = $reportSettings['header'];
+    $footer = $reportSettings['footer'];
+    $footerContacts = array_filter([
+        $footer['phone'],
+        $footer['email'],
+        $footer['website'],
+    ], fn ($value) => filled($value));
+@endphp
 
 @if(!empty($watermarkBase64))
-<div class="wm"><img src="{{ $watermarkBase64 }}" style="width:370px; opacity:0.08;"></div>
+<div class="wm"><img src="{{ $watermarkBase64 }}" style="width:370px; opacity:0.08;" alt="Company watermark"></div>
 @elseif(!empty($logoBase64))
-<div class="wm"><img src="{{ $logoBase64 }}" style="width:370px; opacity:0.06;"></div>
+<div class="wm"><img src="{{ $logoBase64 }}" style="width:370px; opacity:0.06;" alt="Company watermark"></div>
 @endif
 
 {{-- ═══════════ HEADER ═══════════ --}}
@@ -240,15 +249,25 @@
         <td class="hdr-left">
             <table class="brand-tbl">
                 <tr>
-                    @if(!empty($iconBase64))
+            @if(!empty($logoBase64))
                     <td style="width:50px; padding-right:7px; vertical-align:middle;">
-                        <img src="{{ $iconBase64 }}" style="width:46px; height:46px; object-fit:contain; display:block;">
+                <img src="{{ $logoBase64 }}" style="max-width:46px; max-height:46px; object-fit:contain; display:block;" alt="{{ $header['company_name'] ?: 'Company logo' }}">
                     </td>
                     @endif
                     <td style="vertical-align:middle;">
-                        <span class="co-name">GOSIKA</span>
-                        <span class="co-name">INFOSYS</span>
-                        <span class="co-tag">Build &bull; Innovate &bull; Grow</span>
+                @if($header['company_name'])
+                    <span class="co-name">{{ $header['company_name'] }}</span>
+                @endif
+                @if($header['trading_name'])
+                    <span class="co-tag">{{ $header['trading_name'] }}</span>
+                @endif
+                @if($header['registration_no'] || $header['pan_vat_no'])
+                    <span class="co-tag">
+                        @if($header['registration_no']){{ $header['registration_no'] }}@endif
+                        @if($header['registration_no'] && $header['pan_vat_no']) &bull; @endif
+                        @if($header['pan_vat_no'])PAN/VAT: {{ $header['pan_vat_no'] }}@endif
+                    </span>
+                @endif
                     </td>
                 </tr>
             </table>
@@ -262,8 +281,10 @@
         {{-- Right: Orange + tagline --}}
         <td class="hdr-right">
             <div class="slogan">
-                Together for a<br>
-                <span class="slogan-bold">Better Tomorrow</span>
+                @if($header['address']){{ $header['address'] }}<br>@endif
+                @if($header['phone']){{ $header['phone'] }}<br>@endif
+                @if($header['email']){{ $header['email'] }}<br>@endif
+                @if($header['website']){{ $header['website'] }}@endif
             </div>
         </td>
     </tr>
@@ -378,7 +399,7 @@
         <td style="width:50%; vertical-align:top; padding-left:5px; border-left:0.5pt dashed #E5E7EB;">
             <table class="dt">
                 <tr><td class="lbl" style="width:112px;">Reporting Manager</td><td class="sep">:</td><td class="val">{{ $v['employee_reporting_manager'] ?? '' }}</td></tr>
-                <tr><td class="lbl">Work Location</td><td class="sep">:</td><td class="val">{{ $v['employee_work_location'] ?? 'Kathmandu Office' }}</td></tr>
+                <tr><td class="lbl">Work Location</td><td class="sep">:</td><td class="val">{{ $v['employee_work_location'] ?? '' }}</td></tr>
                 <tr><td class="lbl">Working Schedule</td><td class="sep">:</td><td class="val">{{ $v['employee_working_schedule'] ?? '9 AM – 6 PM' }}</td></tr>
                 <tr><td class="lbl">Monthly Salary</td><td class="sep">:</td><td class="val"><strong>{{ $v['employee_salary'] ?? '' }}</strong></td></tr>
                 <tr><td class="lbl">Payment Method</td><td class="sep">:</td><td class="val">{{ $v['employee_payment_method'] ?? 'Bank Transfer' }}</td></tr>
@@ -431,7 +452,7 @@
             <div class="sec-hdr" style="margin-top:0;"><span class="sec-badge">F</span> Employee Declaration</div>
             <div class="panel">
                 <div class="decl-text">
-                    &ldquo;I hereby declare that the information provided above is true and accurate. I agree to comply with Gosika Infosys company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.&rdquo;
+                    &ldquo;I hereby declare that the information provided above is true and accurate. I agree to comply with company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.&rdquo;
                 </div>
                 <table style="width:100%; border-collapse:collapse; font-size:7pt;">
                     <tr>
@@ -493,12 +514,12 @@
 <div class="footer">
     <table style="width:100%; border-collapse:collapse;">
         <tr>
-            <td style="width:35%;">&#128205; {{ $v['company_address'] ?? 'Kathmandu, Nepal' }}</td>
-            <td style="width:25%;">&#127760; {{ $v['company_website'] ?? 'www.gosika.com' }}</td>
-            <td style="width:25%;">&#9993; {{ $v['company_email'] ?? 'info@gosika.com' }}</td>
+            <td style="width:65%;">
+                {{ $header['address'] }}
+                @if($footerContacts)&bull; {{ implode(' &bull; ', $footerContacts) }}@endif
+            </td>
             <td style="width:15%; text-align:right; font-weight:bold;">
-                Gosika Infosys<br>
-                <span style="font-weight:normal; font-size:5.8pt;">Growing Together</span>
+                @if($footer['text']){{ $footer['text'] }}@endif
             </td>
         </tr>
     </table>

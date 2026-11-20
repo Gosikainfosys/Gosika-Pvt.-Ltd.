@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Employee Directory Report - {{ $company->trading_name ?? 'GOSIKA' }}</title>
+    <title>Employee Directory Report</title>
     <style>
         @page {
             margin: 18mm 14mm 16mm 14mm;
@@ -198,36 +198,19 @@
             text-align: right;
         }
         @include('pdf.partials.document_styles')
+        @include('pdf.partials.corporate_report_styles')
     </style>
 </head>
 <body>
 
-    <!-- Corporate Letterhead Header -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                    <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo-img" alt="Logo">
-                @else
-                    <div class="brand-title">GOSIKA <span>OFFICE</span></div>
-                @endif
-                <div class="company-legal">
-                    <strong>{{ $company->company_name ?? 'GOSIKA Pvt. Ltd.' }}</strong> &bull; Reg: {{ $company->registration_no ?? 'REG-284910/080/081' }} &bull; PAN/VAT: {{ $company->pan_vat_no ?? '612093845' }}<br>
-                    {{ $company->address ?? 'Corporate Tower, Level 4, Tinkune' }}, {{ $company->city ?? 'Kathmandu' }}, {{ $company->country ?? 'Nepal' }}<br>
-                    Tel: {{ $company->phone ?? '+977-1-4567890' }} &bull; Email: {{ $company->email ?? 'office@gosika.com' }} &bull; Web: {{ $company->website ?? 'https://gosika.com' }}
-                </div>
-            </td>
-            <td class="header-meta-cell">
-                <div class="report-badge">HR DIRECTORY AUDIT REPORT</div>
-                <div class="report-meta">
-                    <strong>Ref No:</strong> GSK-HR-DIR-{{ Carbon\Carbon::now()->format('Ymd') }}<br>
-                    <strong>Fiscal Year:</strong> {{ $company->fiscal_year ?? '2081/2082' }}<br>
-                    <strong>Date & Time Generated:</strong> {{ Carbon\Carbon::now()->format('Y-m-d H:i:s') }}<br>
-                    <strong>Classification:</strong> CONFIDENTIAL - INTERNAL USE
-                </div>
-            </td>
-        </tr>
-    </table>
+    @include('pdf.partials.corporate_report_header', [
+        'reportTitle' => 'HR Directory Audit Report',
+        'reportMeta' => [
+            'Fiscal Year' => $reportSettings['fiscal_year'],
+            'Generated' => $generatedAt->format('Y-m-d H:i:s'),
+            'Prepared By' => $preparedBy,
+        ],
+    ])
 
     <!-- Quick Summary KPIs -->
     <table class="kpi-table">
@@ -245,7 +228,7 @@
                 <div class="kpi-lbl">Operating Departments</div>
             </td>
             <td class="kpi-card">
-                <div class="kpi-val" style="color: #FF5500;">NPR {{ number_format($employees->where('status', 'active')->sum('basic_salary'), 2) }}</div>
+                <div class="kpi-val" style="color: #FF5500;">{{ $reportSettings['currency'] }} {{ number_format($employees->where('status', 'active')->sum('basic_salary'), 2) }}</div>
                 <div class="kpi-lbl">Total Monthly Basic Payroll</div>
             </td>
         </tr>
@@ -262,7 +245,7 @@
                 <th style="width: 16%;">OFFICIAL EMAIL</th>
                 <th style="width: 10%;">PHONE</th>
                 <th style="width: 8%;">JOINED</th>
-                <th style="width: 8%; text-align: right;">BASIC (NPR)</th>
+                <th style="width: 8%; text-align: right;">BASIC ({{ $reportSettings['currency'] }})</th>
                 <th style="width: 6%; text-align: center;">STATUS</th>
             </tr>
         </thead>
@@ -293,33 +276,25 @@
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Prepared By</div>
-                <div class="sign-sub">Human Resources Executive</div>
+                <div class="sign-sub">{{ $preparedBy }}</div>
             </td>
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Verified By</div>
-                <div class="sign-sub">Finance & Accounts Head</div>
+                <div class="sign-sub">{{ $verifiedBy }}</div>
             </td>
             <td class="sign-cell">
-                @if(!empty($company->stamp_signature_path) && file_exists(public_path('storage/' . $company->stamp_signature_path)))
-                    <img src="{{ public_path('storage/' . $company->stamp_signature_path) }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
+                @if($reportSettings['stamp_signature_path'])
+                    <img src="{{ $reportSettings['stamp_signature_path'] }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
                 @endif
                 <div class="sign-line"></div>
                 <div class="sign-title">Approved By</div>
-                <div class="sign-sub">Managing Director / Administrator</div>
+                <div class="sign-sub">{{ $authorizedBy }}</div>
             </td>
         </tr>
     </table>
 
-    <!-- Footer Note -->
-    <div class="footer-note">
-        <div class="footer-left">
-            This document is computer-generated from the official {{ $company->trading_name ?? 'GOSIKA' }} Office Management System database.
-        </div>
-        <div class="footer-right">
-            Strictly Confidential
-        </div>
-    </div>
+    @include('pdf.partials.corporate_report_footer')
 
 </body>
 </html>

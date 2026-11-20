@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Financial Statement - {{ $company->trading_name ?? 'GOSIKA' }}</title>
+    <title>Financial Statement</title>
     <style>
         @page {
             margin: 18mm 14mm 16mm 14mm;
@@ -183,51 +183,37 @@
             text-align: right;
         }
         @include('pdf.partials.document_styles')
+        @include('pdf.partials.corporate_report_styles')
     </style>
 </head>
 <body>
 
-    <!-- Corporate Letterhead Header -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                    <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo-img" alt="Logo">
-                @else
-                    <div class="brand-title">GOSIKA <span>OFFICE</span></div>
-                @endif
-                <div class="company-legal">
-                    <strong>{{ $company->company_name ?? 'GOSIKA Pvt. Ltd.' }}</strong> &bull; PAN/VAT: {{ $company->pan_vat_no ?? '612093845' }}<br>
-                    {{ $company->address ?? 'Corporate Tower, Level 4, Tinkune' }}, {{ $company->city ?? 'Kathmandu' }}, {{ $company->country ?? 'Nepal' }}<br>
-                    Tel: {{ $company->phone ?? '+977-1-4567890' }} &bull; Email: {{ $company->email ?? 'finance@gosika.com' }}
-                </div>
-            </td>
-            <td class="header-meta-cell">
-                <div class="report-badge">STATEMENT OF INCOME & EXPENDITURE</div>
-                <div class="report-meta">
-                    <strong>Reporting Period:</strong> {{ $periodName ?? $company->fiscal_year }}<br>
-                    <strong>Generated:</strong> {{ Carbon\Carbon::now()->format('Y-m-d H:i:s') }}<br>
-                    <strong>Currency:</strong> NPR (Nepalese Rupee)
-                </div>
-            </td>
-        </tr>
-    </table>
+    @include('pdf.partials.corporate_report_header', [
+        'reportTitle' => 'Statement of Income & Expenditure',
+        'reportMeta' => [
+            'Reporting Period' => $periodName,
+            'Fiscal Year' => $reportSettings['fiscal_year'],
+            'Generated' => $generatedAt->format('Y-m-d H:i:s'),
+            'Currency' => $reportSettings['currency'],
+            'Prepared By' => $preparedBy,
+        ],
+    ])
 
     <!-- Executive Summary KPIs -->
     <table class="kpi-table">
         <tr>
             <td class="kpi-card">
-                <div class="kpi-val" style="color: #059669;">NPR {{ number_format($totalIncome ?? 0, 2) }}</div>
+                <div class="kpi-val" style="color: #059669;">{{ $reportSettings['currency'] }} {{ number_format($totalIncome ?? 0, 2) }}</div>
                 <div class="kpi-lbl">Total Recorded Income</div>
             </td>
             <td class="kpi-card">
-                <div class="kpi-val" style="color: #DC2626;">NPR {{ number_format($totalExpense ?? 0, 2) }}</div>
+                <div class="kpi-val" style="color: #DC2626;">{{ $reportSettings['currency'] }} {{ number_format($totalExpense ?? 0, 2) }}</div>
                 <div class="kpi-lbl">Total Corporate Expenses</div>
             </td>
             <td class="kpi-card">
                 @php $net = ($totalIncome ?? 0) - ($totalExpense ?? 0); @endphp
                 <div class="kpi-val" style="color: {{ $net >= 0 ? '#059669' : '#DC2626' }};">
-                    NPR {{ number_format($net, 2) }}
+                    {{ $reportSettings['currency'] }} {{ number_format($net, 2) }}
                 </div>
                 <div class="kpi-lbl">Net Corporate Balance</div>
             </td>
@@ -243,7 +229,7 @@
                 <th style="width: 12%;">DATE</th>
                 <th style="width: 25%;">ACCOUNT / DESCRIPTION</th>
                 <th style="width: 18%;">CATEGORY</th>
-                <th style="width: 18%; text-align: right;">AMOUNT (NPR)</th>
+                <th style="width: 18%; text-align: right;">AMOUNT ({{ $reportSettings['currency'] }})</th>
             </tr>
         </thead>
         <tbody>
@@ -272,32 +258,25 @@
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Prepared By</div>
-                <div class="sign-sub">Senior Finance Officer</div>
+                <div class="sign-sub">{{ $preparedBy }}</div>
             </td>
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Verified By</div>
-                <div class="sign-sub">Internal Audit Supervisor</div>
+                <div class="sign-sub">{{ $verifiedBy }}</div>
             </td>
             <td class="sign-cell">
-                @if(!empty($company->stamp_signature_path) && file_exists(public_path('storage/' . $company->stamp_signature_path)))
-                    <img src="{{ public_path('storage/' . $company->stamp_signature_path) }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
+                @if($reportSettings['stamp_signature_path'])
+                    <img src="{{ $reportSettings['stamp_signature_path'] }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
                 @endif
                 <div class="sign-line"></div>
                 <div class="sign-title">Approved By</div>
-                <div class="sign-sub">Managing Director</div>
+                <div class="sign-sub">{{ $authorizedBy }}</div>
             </td>
         </tr>
     </table>
 
-    <div class="footer-note">
-        <div class="footer-left">
-            Certified financial summary generated from the official {{ $company->trading_name ?? 'GOSIKA' }} database.
-        </div>
-        <div class="footer-right">
-            Confidential Financial Statement
-        </div>
-    </div>
+    @include('pdf.partials.corporate_report_footer')
 
 </body>
 </html>

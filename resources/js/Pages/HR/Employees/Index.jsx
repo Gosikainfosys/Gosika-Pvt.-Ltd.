@@ -63,11 +63,11 @@ export default function Index({ employees, departments, filters }) {
                 </div>
                 <div className="flex items-center gap-2.5">
                     <a
-                        href="/employees/export-csv"
+                        href="/employees/export-xlsx"
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg shadow-2xs transition"
                     >
                         <Download className="h-4 w-4" />
-                        <span>Export CSV</span>
+                        <span>Export Excel</span>
                     </a>
                     <Link
                         href="/employees/create"

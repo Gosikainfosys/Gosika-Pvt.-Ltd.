@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import Modal from '@/Components/Modal';
 import Badge from '@/Components/Badge';
@@ -24,6 +24,8 @@ export default function Index({
     rates
 }) {
     const [generateModalOpen, setGenerateModalOpen] = useState(false);
+    const { company } = usePage().props;
+    const currencySymbol = company?.currency_symbol || company?.currency || '';
 
     const form = useForm({
         month: month,
@@ -62,11 +64,11 @@ export default function Index({
                 </div>
                 <div className="flex items-center gap-2">
                     <a
-                        href={`/payroll/export-csv?month=${month}&year=${year}`}
+                        href={`/payroll/export-xlsx?month=${month}&year=${year}`}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg shadow-2xs transition"
                     >
                         <Download className="h-4 w-4" />
-                        <span>Export Ledger (CSV)</span>
+                        <span>Export Ledger (Excel)</span>
                     </a>
                     {salaries.length > 0 && (
                         <a
@@ -130,19 +132,19 @@ export default function Index({
                     <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100">
                         <span className="text-[10px] font-bold text-gray-400 uppercase">Gross Earnings</span>
                         <p className="text-base font-black text-gray-800 font-mono mt-0.5">
-                            रू {stats.total_gross.toLocaleString()}
+                            {currencySymbol} {stats.total_gross.toLocaleString()}
                         </p>
                     </div>
                     <div className="p-3.5 rounded-xl bg-red-50/50 border border-red-100">
                         <span className="text-[10px] font-bold text-red-600 uppercase">Total Deductions</span>
                         <p className="text-base font-black text-red-600 font-mono mt-0.5">
-                            - रू {stats.total_deductions.toLocaleString()}
+                            - {currencySymbol} {stats.total_deductions.toLocaleString()}
                         </p>
                     </div>
                     <div className="p-3.5 rounded-xl bg-[#FFF0E8] border border-[#FFD6C0]">
                         <span className="text-[10px] font-bold text-[#662200] uppercase">Net Disbursed</span>
                         <p className="text-base font-black text-[#FF5500] font-mono mt-0.5">
-                            रू {stats.total_disbursed.toLocaleString()}
+                            {currencySymbol} {stats.total_disbursed.toLocaleString()}
                         </p>
                     </div>
                 </div>

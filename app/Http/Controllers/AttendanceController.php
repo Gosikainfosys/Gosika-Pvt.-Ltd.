@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Department;
 use App\Models\AuditLog;
+use App\Services\CorporateExcelReportService;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -252,6 +253,60 @@ class AttendanceController extends Controller
 
         AuditLog::log('export', 'attendance', null, "Exported monthly attendance summary for {$startDate->format('F Y')}");
 
-        return $reportService->generateCsvResponse("gosika_attendance_{$year}_{$month}.csv", $headers, $rows);
+        return $reportService->generateCsvResponse("attendance_{$year}_{$month}.csv", $headers, $rows);
+    }
+
+    public function exportXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $month = (int) $request->input('month', Carbon::now()->month);
+        $year = (int) $request->input('year', Carbon::now()->year);
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+
+        $employees = Employee::with('department')->where('status', 'active')->get();
+        $attendances = Attendance::whereBetween('date', [
+            $startDate->format('Y-m-d'),
+            $endDate->format('Y-m-d'),
+        ])->get();
+
+        $rows = [];
+        foreach ($employees as $employee) {
+            $records = $attendances->where('employee_id', $employee->id);
+            $rows[] = [
+                $employee->employee_code,
+                $employee->full_name,
+                $employee->department->name ?? null,
+                $records->where('status', 'present')->count(),
+                $records->where('status', 'late')->count(),
+                $records->where('status', 'half_day')->count(),
+                $records->whereIn('status', ['absent', 'on_leave'])->count(),
+                (float) $records->sum('total_hours'),
+            ];
+        }
+
+        AuditLog::log('export', 'attendance', null, "Exported monthly attendance summary to XLSX for {$startDate->format('F Y')}");
+
+        return $reportService->download([
+            'filename' => "attendance_{$year}_{$month}.xlsx",
+            'title' => 'Monthly Attendance Summary',
+            'metadata' => ['Period' => $startDate->format('F Y')],
+            'columns' => [
+                ['label' => 'Employee Code', 'width' => 17],
+                ['label' => 'Full Name', 'width' => 24],
+                ['label' => 'Department', 'width' => 22],
+                ['label' => 'Present Days', 'format' => 'number', 'width' => 15],
+                ['label' => 'Late Days', 'format' => 'number', 'width' => 14],
+                ['label' => 'Half Days', 'format' => 'number', 'width' => 14],
+                ['label' => 'Absent / Leave', 'format' => 'number', 'width' => 17],
+                ['label' => 'Total Hours', 'format' => 'decimal', 'width' => 15],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Employees Reported', 'value' => count($rows), 'format' => 'number'],
+                ['label' => 'Present Days', 'value' => array_sum(array_column($rows, 3)), 'format' => 'number'],
+                ['label' => 'Recorded Hours', 'value' => array_sum(array_column($rows, 7)), 'format' => 'decimal'],
+            ],
+            'orientation' => 'landscape',
+        ]);
     }
 }

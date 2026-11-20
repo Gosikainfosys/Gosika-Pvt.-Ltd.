@@ -20,7 +20,11 @@
 <body>
     @foreach($salaries as $salary)
         <section class="slip">
-            @include('pdf.partials.salary_slip_content', ['salary' => $salary, 'company' => $company])
+            @include('pdf.partials.salary_slip_content', [
+                'salary' => $salary,
+                'reportSettings' => $reportSettings,
+                'generatedAt' => $generatedAt,
+            ])
         </section>
     @endforeach
 </body>

@@ -44,6 +44,7 @@ class CompanySettingController extends Controller
             'trading_name' => ['required', 'string', 'max:100'],
             'registration_no' => ['nullable', 'string', 'max:100'],
             'pan_vat_no' => ['nullable', 'string', 'max:50'],
+            'report_footer_text' => ['nullable', 'string', 'max:2000'],
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:50'],
             'website' => ['nullable', 'string', 'max:255'],

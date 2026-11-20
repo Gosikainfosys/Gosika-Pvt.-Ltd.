@@ -8,6 +8,7 @@ use App\Models\IncomeCategory;
 use App\Models\ExpenseCategory;
 use App\Models\CompanySetting;
 use App\Models\AuditLog;
+use App\Services\CorporateExcelReportService;
 use App\Services\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -85,21 +86,7 @@ class FinanceController extends Controller
 
     public function incomeIndex(Request $request)
     {
-        $query = Income::with(['category', 'creator']);
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-        if ($request->filled('search')) {
-            $s = $request->search;
-            $query->where(function ($q) use ($s) {
-                $q->where('title', 'like', "%{$s}%")
-                  ->orWhere('income_number', 'like', "%{$s}%")
-                  ->orWhere('payer', 'like', "%{$s}%");
-            });
-        }
-
-        $incomes = $query->latest('date')->paginate(12)->withQueryString();
+        $incomes = $this->incomeQuery($request)->latest('date')->paginate(12)->withQueryString();
         $categories = IncomeCategory::all();
 
         return Inertia::render('Finance/Income/Index', [
@@ -107,6 +94,75 @@ class FinanceController extends Controller
             'categories' => $categories,
             'filters' => $request->only(['category_id', 'search']),
         ]);
+    }
+
+    public function downloadIncomeReportXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $incomes = $this->incomeQuery($request)->latest('date')->get();
+        $rows = $incomes->map(fn (Income $income) => [
+            $income->income_number,
+            $income->title,
+            $income->category->name ?? null,
+            $income->date,
+            str_replace('_', ' ', $income->payment_method),
+            $income->payer,
+            (float) $income->amount,
+            strtoupper($income->status),
+        ])->all();
+
+        $metadata = [];
+        if ($request->filled('category_id')) {
+            $metadata['Category'] = IncomeCategory::whereKey($request->input('category_id'))->value('name');
+        }
+        if ($request->filled('search')) {
+            $metadata['Search'] = $request->input('search');
+        }
+
+        AuditLog::log('export', 'incomes', null, 'Exported Corporate Income Report XLSX');
+
+        return $reportService->download([
+            'filename' => 'corporate_income_report.xlsx',
+            'title' => 'Corporate Income Report',
+            'metadata' => $metadata,
+            'columns' => [
+                ['label' => 'Income Reference', 'width' => 20],
+                ['label' => 'Title', 'width' => 26],
+                ['label' => 'Category', 'width' => 21],
+                ['label' => 'Date', 'format' => 'date', 'width' => 15],
+                ['label' => 'Payment Method', 'width' => 19],
+                ['label' => 'Payer', 'width' => 24],
+                ['label' => 'Amount', 'format' => 'currency', 'width' => 17],
+                ['label' => 'Status', 'width' => 15],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Income Entries', 'value' => $incomes->count(), 'format' => 'number'],
+                ['label' => 'Completed Income', 'value' => (float) $incomes->where('status', 'completed')->sum('amount'), 'format' => 'currency'],
+                ['label' => 'Pending Income', 'value' => (float) $incomes->where('status', 'pending')->sum('amount'), 'format' => 'currency'],
+            ],
+            'totals' => ['label' => 'TOTAL INCOME', 'formulas' => [6 => 'sum']],
+            'signatures' => true,
+            'orientation' => 'landscape',
+        ]);
+    }
+
+    private function incomeQuery(Request $request)
+    {
+        $query = Income::with(['category', 'creator']);
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->input('category_id'));
+        }
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($query) use ($search) {
+                $query->where('title', 'like', "%{$search}%")
+                    ->orWhere('income_number', 'like', "%{$search}%")
+                    ->orWhere('payer', 'like', "%{$search}%");
+            });
+        }
+
+        return $query;
     }
 
     public function storeIncome(Request $request)
@@ -199,6 +255,70 @@ class FinanceController extends Controller
 
     public function downloadExpenseReportPdf(Request $request, ReportService $reportService)
     {
+        $data = $this->expenseReportData($request);
+        $pdf = $reportService->generateReportPdf('expense_report', $data, 'portrait');
+
+        AuditLog::log('export', 'expenses', null, "Exported Expense Audit Report PDF ({$data['dateRange']})");
+
+        return $pdf->download('expense_audit_report.pdf');
+    }
+
+    public function showExpenseReport(Request $request, ReportService $reportService)
+    {
+        return view(
+            'pdf.reports.expense_report',
+            $reportService->prepareReportData($this->expenseReportData($request))
+        );
+    }
+
+    public function downloadExpenseReportXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $data = $this->expenseReportData($request);
+        $rows = $data['expenses']->map(fn (Expense $expense) => [
+                $expense->expense_number,
+                $expense->date,
+                $expense->title,
+                $expense->description,
+                $expense->category->name ?? null,
+                $expense->payee,
+                str_replace('_', ' ', $expense->payment_method),
+                strtoupper($expense->status),
+                (float) $expense->amount,
+            ])->all();
+
+        AuditLog::log('export', 'expenses', null, "Exported Expense Audit Report XLSX ({$data['dateRange']})");
+
+        return $reportService->download([
+            'filename' => 'expense_audit_report.xlsx',
+            'title' => 'Corporate Expense Audit Statement',
+            'metadata' => ['Date Range' => $data['dateRange']],
+            'columns' => [
+                ['label' => 'Expense Voucher', 'width' => 20],
+                ['label' => 'Date', 'format' => 'date', 'width' => 15],
+                ['label' => 'Title', 'width' => 25],
+                ['label' => 'Description', 'width' => 34],
+                ['label' => 'Category', 'width' => 20],
+                ['label' => 'Payee', 'width' => 22],
+                ['label' => 'Payment Method', 'width' => 18],
+                ['label' => 'Status', 'width' => 14],
+                ['label' => 'Amount', 'format' => 'currency', 'width' => 17],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Expense Entries', 'value' => $data['expenses']->count(), 'format' => 'number'],
+                ['label' => 'Cumulative Expenses Audited', 'value' => (float) $data['totalAmount'], 'format' => 'currency'],
+                ['label' => 'Expense Categories', 'value' => $data['expenses']->pluck('category.name')->filter()->unique()->count(), 'format' => 'number'],
+                ['label' => 'Paid Amount', 'value' => (float) $data['expenses']->where('status', 'paid')->sum('amount'), 'format' => 'currency'],
+                ['label' => 'Outstanding Amount', 'value' => (float) $data['expenses']->where('status', 'pending')->sum('amount'), 'format' => 'currency'],
+            ],
+            'totals' => ['label' => 'TOTAL EXPENSES', 'formulas' => [8 => 'sum']],
+            'signatures' => true,
+            'orientation' => 'landscape',
+        ]);
+    }
+
+    private function expenseReportData(Request $request): array
+    {
         $query = Expense::with('category');
         $dateRangeText = 'All Historical Dates';
 
@@ -211,19 +331,13 @@ class FinanceController extends Controller
         }
 
         $expenses = $query->latest('date')->get();
-        $totalAmount = $expenses->sum('amount');
-        $categorySummary = $expenses->groupBy('category.name');
 
-        $pdf = $reportService->generateReportPdf('expense_report', [
+        return [
             'expenses' => $expenses,
-            'totalAmount' => $totalAmount,
+            'totalAmount' => $expenses->sum('amount'),
             'dateRange' => $dateRangeText,
-            'categorySummary' => $categorySummary,
-        ], 'portrait');
-
-        AuditLog::log('export', 'expenses', null, "Exported Expense Audit Report PDF ({$dateRangeText})");
-
-        return $pdf->download('GOSIKA_Expense_Audit_Report.pdf');
+            'categorySummary' => $expenses->groupBy('category.name'),
+        ];
     }
 
     public function statements(Request $request)
@@ -276,6 +390,64 @@ class FinanceController extends Controller
     public function downloadStatementPdf(Request $request, ReportService $reportService)
     {
         $period = $request->input('period', 'monthly');
+        $data = $this->financialStatementData($period);
+        $pdf = $reportService->generateReportPdf('financial_statement', $data, 'portrait');
+
+        AuditLog::log('export', 'finance', null, "Exported Financial Statement PDF ({$data['periodName']})");
+
+        return $pdf->download("financial_statement_{$period}.pdf");
+    }
+
+    public function showStatement(Request $request, ReportService $reportService)
+    {
+        $data = $this->financialStatementData($request->input('period', 'monthly'));
+
+        return view(
+            'pdf.reports.financial_statement',
+            $reportService->prepareReportData($data)
+        );
+    }
+
+    public function downloadStatementXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $period = $request->input('period', 'monthly');
+        $data = $this->financialStatementData($period);
+        $rows = $data['transactions']->map(fn (array $transaction) => [
+                strtoupper($transaction['type']),
+                $transaction['ref'],
+                $transaction['date'],
+                $transaction['title'],
+                $transaction['category'],
+                (float) $transaction['amount'],
+            ])->all();
+
+        AuditLog::log('export', 'finance', null, "Exported Financial Statement XLSX ({$data['periodName']})");
+
+        return $reportService->download([
+            'filename' => "financial_statement_{$period}.xlsx",
+            'title' => 'Statement of Income & Expenditure',
+            'metadata' => ['Reporting Period' => $data['periodName']],
+            'columns' => [
+                ['label' => 'Type', 'width' => 16],
+                ['label' => 'Transaction Reference', 'width' => 23],
+                ['label' => 'Date', 'format' => 'date', 'width' => 15],
+                ['label' => 'Account / Description', 'width' => 32],
+                ['label' => 'Category', 'width' => 24],
+                ['label' => 'Amount', 'format' => 'currency', 'width' => 18],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total Income', 'value' => (float) $data['totalIncome'], 'format' => 'currency'],
+                ['label' => 'Total Expenses', 'value' => (float) $data['totalExpense'], 'format' => 'currency'],
+                ['label' => 'Net Cash Flow', 'value' => (float) ($data['totalIncome'] - $data['totalExpense']), 'format' => 'currency'],
+            ],
+            'signatures' => true,
+            'orientation' => 'landscape',
+        ]);
+    }
+
+    private function financialStatementData(string $period): array
+    {
         $now = Carbon::now();
 
         if ($period === 'quarterly') {
@@ -320,18 +492,14 @@ class FinanceController extends Controller
             ->withSum(['expenses' => fn($q) => $q->whereBetween('date', [$startDate, $endDate])], 'amount')
             ->get();
 
-        $pdf = $reportService->generateReportPdf('financial_statement', [
+        return [
             'periodName' => $periodLabel,
             'totalIncome' => $totalIncome,
             'totalExpense' => $totalExpense,
             'transactions' => $transactions,
             'incomeCategories' => $incomeCategories,
             'expenseCategories' => $expenseCategories,
-        ], 'portrait');
-
-        AuditLog::log('export', 'finance', null, "Exported Financial Statement PDF ({$periodLabel})");
-
-        return $pdf->download("GOSIKA_Financial_Statement_{$period}.pdf");
+        ];
     }
 
     public function categories()

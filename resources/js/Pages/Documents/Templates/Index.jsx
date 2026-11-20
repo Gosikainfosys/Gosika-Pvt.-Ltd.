@@ -55,7 +55,7 @@ export default function Index({ templates = [] }) {
                         </h1>
                     </div>
                     <p className="text-xs text-gray-500 max-w-2xl">
-                        Manage official Gosika Infosys document templates. Every heading, section, field, legal clause, declaration, signature block and brand color is fully editable and backed by version control.
+                        Manage employee document templates. Company identity and contact details are supplied dynamically from Settings.
                     </p>
                 </div>
 

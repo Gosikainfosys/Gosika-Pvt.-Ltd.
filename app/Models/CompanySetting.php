@@ -11,6 +11,7 @@ class CompanySetting extends Model
         'trading_name',
         'registration_no',
         'pan_vat_no',
+        'report_footer_text',
         'email',
         'phone',
         'website',

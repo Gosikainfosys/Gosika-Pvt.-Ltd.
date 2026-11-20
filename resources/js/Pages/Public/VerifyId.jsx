@@ -57,7 +57,7 @@ const DetailRow = ({ icon: Icon, label, value, highlight }) => (
 );
 
 export default function VerifyId({ isValid, employee, company }) {
-    const companyLocation = [company?.address, company?.city, company?.country].filter(Boolean).join(', ');
+    const companyLocation = company?.address || [company?.city, company?.country].filter(Boolean).join(', ');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#F7F8FA] via-[#FFF0E8]/30 to-[#F7F8FA] flex flex-col">

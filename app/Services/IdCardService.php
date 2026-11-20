@@ -3,14 +3,14 @@
 namespace App\Services;
 
 use App\Models\Employee;
-use App\Models\CompanySetting;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class IdCardService
 {
-    public function __construct(private PdfDocumentService $documents)
-    {
-    }
+    public function __construct(
+        private PdfDocumentService $documents,
+        private CorporateReportSettingsService $corporateSettings
+    ) {}
 
     /**
      * Generate QR code as base64 SVG data URI for an employee.
@@ -33,12 +33,13 @@ class IdCardService
      */
     public function generateSinglePdf(Employee $employee, string $template = 'corporate_modern')
     {
-        $company = CompanySetting::current();
+        $reportSettings = $this->corporateSettings->forReport();
         $qrCodeUri = $this->generateQrCodeDataUri($employee);
 
         return $this->documents->render('pdf.id_card_cr80', [
             'employee' => $employee,
-            'company' => $company,
+            'company' => $reportSettings['company'],
+            'reportSettings' => $reportSettings,
             'template' => $template,
             'qrCodeUri' => $qrCodeUri,
         ], [0, 0, 242.65, 153.01], 'landscape');
@@ -49,7 +50,7 @@ class IdCardService
      */
     public function generateA4SheetPdf($employees, string $template = 'corporate_modern')
     {
-        $company = CompanySetting::current();
+        $reportSettings = $this->corporateSettings->forReport();
         $cardsData = [];
 
         foreach ($employees as $employee) {
@@ -61,7 +62,8 @@ class IdCardService
 
         return $this->documents->render('pdf.id_cards_a4_sheet', [
             'cardsData' => $cardsData,
-            'company' => $company,
+            'company' => $reportSettings['company'],
+            'reportSettings' => $reportSettings,
             'template' => $template,
         ]);
     }

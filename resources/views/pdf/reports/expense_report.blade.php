@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Expense Audit Statement - {{ $company->trading_name ?? 'GOSIKA' }}</title>
+    <title>Expense Audit Statement</title>
     <style>
         @page {
             margin: 18mm 14mm 16mm 14mm;
@@ -183,36 +183,21 @@
             text-align: right;
         }
         @include('pdf.partials.document_styles')
+        @include('pdf.partials.corporate_report_styles')
     </style>
 </head>
 <body>
 
-    <!-- Corporate Letterhead Header -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                    <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo-img" alt="Logo">
-                @else
-                    <div class="brand-title">GOSIKA <span>OFFICE</span></div>
-                @endif
-                <div class="company-legal">
-                    <strong>{{ $company->company_name ?? 'GOSIKA Pvt. Ltd.' }}</strong> &bull; PAN/VAT: {{ $company->pan_vat_no ?? '612093845' }}<br>
-                    {{ $company->address ?? 'Corporate Tower, Level 4, Tinkune' }}, {{ $company->city ?? 'Kathmandu' }}, {{ $company->country ?? 'Nepal' }}<br>
-                    Tel: {{ $company->phone ?? '+977-1-4567890' }} &bull; Email: {{ $company->email ?? 'finance@gosika.com' }}
-                </div>
-            </td>
-            <td class="header-meta-cell">
-                <div class="report-badge">CORPORATE EXPENSE AUDIT STATEMENT</div>
-                <div class="report-meta">
-                    <strong>Date Range:</strong> {{ $dateRange ?? 'Full Historical Log' }}<br>
-                    <strong>Fiscal Year:</strong> {{ $company->fiscal_year ?? '2081/2082' }}<br>
-                    <strong>Generated:</strong> {{ Carbon\Carbon::now()->format('Y-m-d H:i:s') }}<br>
-                    <strong>Currency:</strong> NPR (Nepalese Rupee)
-                </div>
-            </td>
-        </tr>
-    </table>
+    @include('pdf.partials.corporate_report_header', [
+        'reportTitle' => 'Corporate Expense Audit Statement',
+        'reportMeta' => [
+            'Date Range' => $dateRange,
+            'Fiscal Year' => $reportSettings['fiscal_year'],
+            'Generated' => $generatedAt->format('Y-m-d H:i:s'),
+            'Currency' => $reportSettings['currency'],
+            'Prepared By' => $preparedBy,
+        ],
+    ])
 
     <!-- Summary KPIs -->
     <table class="kpi-table">
@@ -222,7 +207,7 @@
                 <div class="kpi-lbl">Total Expense Entries</div>
             </td>
             <td class="kpi-card">
-                <div class="kpi-val" style="color: #FF5500;">NPR {{ number_format($totalAmount ?? $expenses->sum('amount'), 2) }}</div>
+                <div class="kpi-val" style="color: #FF5500;">{{ $reportSettings['currency'] }} {{ number_format($totalAmount ?? $expenses->sum('amount'), 2) }}</div>
                 <div class="kpi-lbl">Cumulative Expenses Audited</div>
             </td>
             <td class="kpi-card">
@@ -242,7 +227,7 @@
                 <th style="width: 16%;">CATEGORY</th>
                 <th style="width: 14%;">PAYEE / VENDOR</th>
                 <th style="width: 10%;">METHOD</th>
-                <th style="width: 10%; text-align: right;">AMOUNT (NPR)</th>
+                <th style="width: 10%; text-align: right;">AMOUNT ({{ $reportSettings['currency'] }})</th>
             </tr>
         </thead>
         <tbody>
@@ -266,7 +251,7 @@
         <tfoot>
             <tr style="background: #FFF0E8; font-weight: 800; border-top: 2px solid #FF5500;">
                 <td colspan="6" style="text-align: right; padding: 7px 8px; font-size: 8pt; color: #202124;">GRAND TOTAL EXPENSES:</td>
-                <td class="num-col" style="color: #FF5500; font-size: 8.5pt;">NPR {{ number_format($totalAmount ?? $expenses->sum('amount'), 2) }}</td>
+                <td class="num-col" style="color: #FF5500; font-size: 8.5pt;">{{ $reportSettings['currency'] }} {{ number_format($totalAmount ?? $expenses->sum('amount'), 2) }}</td>
             </tr>
         </tfoot>
     </table>
@@ -277,32 +262,25 @@
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Prepared By</div>
-                <div class="sign-sub">Accounts Officer</div>
+                <div class="sign-sub">{{ $preparedBy }}</div>
             </td>
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Audited By</div>
-                <div class="sign-sub">Chief Financial Officer</div>
+                <div class="sign-sub">{{ $verifiedBy }}</div>
             </td>
             <td class="sign-cell">
-                @if(!empty($company->stamp_signature_path) && file_exists(public_path('storage/' . $company->stamp_signature_path)))
-                    <img src="{{ public_path('storage/' . $company->stamp_signature_path) }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
+                @if($reportSettings['stamp_signature_path'])
+                    <img src="{{ $reportSettings['stamp_signature_path'] }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
                 @endif
                 <div class="sign-line"></div>
                 <div class="sign-title">Authorized By</div>
-                <div class="sign-sub">Managing Director</div>
+                <div class="sign-sub">{{ $authorizedBy }}</div>
             </td>
         </tr>
     </table>
 
-    <div class="footer-note">
-        <div class="footer-left">
-            Certified official financial statement &bull; {{ $company->trading_name ?? 'GOSIKA' }} Internal Office Finance System
-        </div>
-        <div class="footer-right">
-            Confidential Financial Audit
-        </div>
-    </div>
+    @include('pdf.partials.corporate_report_footer')
 
 </body>
 </html>

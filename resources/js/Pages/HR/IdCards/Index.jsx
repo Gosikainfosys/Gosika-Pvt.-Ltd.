@@ -27,7 +27,7 @@ export default function Index({
     const [side, setSide] = useState('front'); // front or back
     const [template, setTemplate] = useState(currentTemplate || 'corporate_modern');
     const [reissueModalOpen, setReissueModalOpen] = useState(false);
-    const companyLocation = [company?.address, company?.city, company?.country].filter(Boolean).join(', ');
+    const companyLocation = company?.address || [company?.city, company?.country].filter(Boolean).join(', ');
 
     const reissueForm = useForm({
         template: template,
@@ -216,17 +216,13 @@ export default function Index({
                                         {/* Front Top / Lanyard & Logo */}
                                         <div className="pt-2 text-center">
                                             <div className="w-12 h-1.5 mx-auto bg-gray-200 rounded-full border border-dashed border-gray-400 mb-2" />
-                                            {company?.logo_url ? (
-                                                <img src={company.logo_url} alt="Logo" className="h-6 max-w-[120px] mx-auto object-contain" />
-                                            ) : (
-                                                <div>
-                                                    <span className="text-xs font-black text-gray-900 tracking-tight block">
-                                                        GOSIKA <span className="text-[#FF5500]">OFFICE</span>
-                                                    </span>
-                                                    <span className="text-[7.5px] font-bold text-gray-400 tracking-widest uppercase">
-                                                        {company?.company_name || 'GOSIKA PVT. LTD.'}
-                                                    </span>
-                                                </div>
+                                            {company?.logo_url && (
+                                                <img src={company.logo_url} alt={company.company_name || 'Company logo'} className="h-6 max-w-[120px] mx-auto object-contain" />
+                                            )}
+                                            {!company?.logo_url && company?.company_name && (
+                                                <span className="text-xs font-black text-gray-900 tracking-tight block">
+                                                    {company.company_name}
+                                                </span>
                                             )}
                                         </div>
 
@@ -290,7 +286,7 @@ export default function Index({
 
                                         {/* Front Bottom Bar */}
                                         <div className="bg-[#202124] -mx-4 -mb-4 px-3 py-1 flex items-center justify-between text-[7px] text-gray-300">
-                                            <span>{company?.website || 'gosika.com'}</span>
+                                            <span>{company?.website || company?.report_footer_text}</span>
                                             <span className="text-[#FF5500] font-bold">AUTHORIZED BADGE</span>
                                         </div>
                                     </>
@@ -300,7 +296,7 @@ export default function Index({
                                         <div className="pt-2 text-center">
                                             <div className="w-12 h-1.5 mx-auto bg-gray-200 rounded-full border border-dashed border-gray-400 mb-2" />
                                             <span className="text-[9px] font-black text-gray-900 uppercase tracking-wider block">
-                                                Property of {company?.trading_name || 'GOSIKA'}
+                                                Property of {company?.trading_name || company?.company_name}
                                             </span>
                                             <span className="text-[7.5px] text-gray-500">Please return if found</span>
                                         </div>
@@ -314,7 +310,7 @@ export default function Index({
 
                                         {/* Back Address & Emergency */}
                                         <div className="text-center text-[7.5px] text-gray-600 leading-tight">
-                                            <p className="font-bold text-gray-900">{company?.company_name || 'GOSIKA Pvt. Ltd.'}</p>
+                                            {company?.company_name && <p className="font-bold text-gray-900">{company.company_name}</p>}
                                             {companyLocation && <p>{companyLocation}</p>}
                                             {company?.phone && <p>Tel: <span className="font-bold text-gray-800">{company.phone}</span></p>}
                                             <p>Emergency: <span className="font-bold text-[#FF5500]">{selectedEmployee.emergency_contact_phone || company?.phone || '—'}</span></p>
@@ -330,7 +326,7 @@ export default function Index({
                                         </div>
 
                                         <div className="bg-[#FF5500] -mx-4 -mb-4 px-3 py-1 text-center text-[7px] text-white font-bold uppercase tracking-wider">
-                                            OFFICIAL CORPORATE RECORD
+                                            {company?.report_footer_text}
                                         </div>
                                     </>
                                 )}

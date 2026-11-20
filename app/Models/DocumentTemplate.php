@@ -66,10 +66,10 @@ class DocumentTemplate extends Model
             'page_margin_right' => '12mm',
             'show_watermark' => true,
             'watermark_opacity' => 0.05,
-            'company_name' => 'GOSIKA INFOSYS',
-            'tagline' => 'Build • Innovate • Grow',
-            'header_top_right' => 'Together for a Better Tomorrow',
-            'footer_text' => 'Gosika Infosys - Growing Together',
+            'company_name' => '',
+            'tagline' => '',
+            'header_top_right' => '',
+            'footer_text' => '',
         ];
     }
 }

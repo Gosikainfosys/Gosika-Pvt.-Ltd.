@@ -2,8 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\CompanySetting;
 use App\Models\Notification;
+use App\Services\CorporateReportSettingsService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,7 +41,7 @@ class HandleInertiaRequests extends Middleware
         $unreadCount = $user ? Notification::where('is_read', false)->count() : 0;
         $recentNotifications = $user ? Notification::latest()->limit(5)->get() : [];
 
-        $company = CompanySetting::first();
+        $company = app(CorporateReportSettingsService::class)->forInertia();
 
         return [
             ...parent::share($request),
@@ -57,21 +57,7 @@ class HandleInertiaRequests extends Middleware
                     'phone' => $user->phone,
                 ] : null,
             ],
-            'company' => $company ? [
-                'name' => $company->company_name,
-                'trading_name' => $company->trading_name,
-                'email' => $company->email,
-                'phone' => $company->phone,
-                'address' => $company->address,
-                'city' => $company->city,
-                'country' => $company->country,
-                'currency' => $company->default_currency,
-                'currency_symbol' => $company->currency_symbol,
-                'fiscal_year' => $company->fiscal_year,
-                'logo_path' => $company->logo_path,
-                'logo_url' => $company->logo_url,
-                'stamp_signature_url' => $company->stamp_signature_url,
-            ] : null,
+            'company' => $company,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

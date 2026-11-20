@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Employee;
-use App\Models\CompanySetting;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentTemplateVersion;
 use App\Models\GeneratedEmployeeDocument;
@@ -15,10 +14,14 @@ use Carbon\Carbon;
 class DocumentGenerationService
 {
     protected PdfDocumentService $pdfService;
+    protected CorporateReportSettingsService $corporateSettings;
 
-    public function __construct(PdfDocumentService $pdfService)
-    {
+    public function __construct(
+        PdfDocumentService $pdfService,
+        CorporateReportSettingsService $corporateSettings
+    ) {
         $this->pdfService = $pdfService;
+        $this->corporateSettings = $corporateSettings;
     }
 
     /**
@@ -44,7 +47,7 @@ class DocumentGenerationService
                 ['var' => '{{employee.employment_type}}', 'desc' => 'Employment type (Full-time, etc.)'],
                 ['var' => '{{employee.joining_date}}', 'desc' => 'Employment start date (DD-MM-YYYY)'],
                 ['var' => '{{employee.probation_period}}', 'desc' => 'Probation period duration'],
-                ['var' => '{{employee.salary}}', 'desc' => 'Monthly basic salary in NPR'],
+                ['var' => '{{employee.salary}}', 'desc' => 'Monthly basic salary in the configured currency'],
                 ['var' => '{{employee.reporting_manager}}', 'desc' => 'Supervisor / reporting manager name'],
                 ['var' => '{{employee.work_location}}', 'desc' => 'Assigned office work location'],
                 ['var' => '{{employee.working_schedule}}', 'desc' => 'Standard working hours (e.g. 9 AM - 6 PM)'],
@@ -72,11 +75,11 @@ class DocumentGenerationService
                 ['var' => '{{employee.registration_date}}', 'desc' => 'System registration date'],
             ],
             'Company Variables' => [
-                ['var' => '{{company.name}}', 'desc' => 'Company legal name (GOSIKA INFOSYS)'],
-                ['var' => '{{company.tagline}}', 'desc' => 'Company slogan (Build • Innovate • Grow)'],
+                ['var' => '{{company.name}}', 'desc' => 'Company legal name from Settings'],
+                ['var' => '{{company.tagline}}', 'desc' => 'Optional template tagline'],
                 ['var' => '{{company.address}}', 'desc' => 'Corporate office street address'],
-                ['var' => '{{company.city}}', 'desc' => 'City location (Kathmandu)'],
-                ['var' => '{{company.country}}', 'desc' => 'Country (Nepal)'],
+                ['var' => '{{company.city}}', 'desc' => 'City from company Settings'],
+                ['var' => '{{company.country}}', 'desc' => 'Country from company Settings'],
                 ['var' => '{{company.phone}}', 'desc' => 'Official phone number'],
                 ['var' => '{{company.email}}', 'desc' => 'Official email address'],
                 ['var' => '{{company.website}}', 'desc' => 'Official website URL'],
@@ -97,9 +100,14 @@ class DocumentGenerationService
      * Compile existing employee and company settings into a key-value dictionary.
      * Never invents data: missing fields default to clean empty or "Not Provided".
      */
-    public function compileVariables(Employee $employee, array $customData = []): array
+    public function compileVariables(
+        Employee $employee,
+        array $customData = [],
+        ?array $reportSettings = null
+    ): array
     {
-        $company = CompanySetting::current();
+        $reportSettings ??= $this->corporateSettings->forReport();
+        $company = $reportSettings['company'];
         $employee->loadMissing(['department', 'designation']);
 
         $regDate = $customData['registration_date'] ?? ($employee->created_at ? $employee->created_at->format('d-m-Y') : date('d-m-Y'));
@@ -112,9 +120,10 @@ class DocumentGenerationService
             $citizenship = trim($m[1]);
         }
 
+        $currency = $reportSettings['currency_symbol'] ?: $reportSettings['currency'];
         $salaryFormatted = $customData['salary'] ?? (
             $employee->basic_salary !== null && $employee->basic_salary > 0
-                ? 'NPR ' . number_format((float) $employee->basic_salary, 2)
+                ? trim(($currency ? $currency.' ' : '').number_format((float) $employee->basic_salary, 2))
                 : 'As per contract'
         );
 
@@ -164,7 +173,7 @@ class DocumentGenerationService
             '{{employee.probation_period}}' => $customData['probation_period'] ?? '3 Months',
             '{{employee.salary}}' => $salaryFormatted,
             '{{employee.reporting_manager}}' => $reportingManager,
-            '{{employee.work_location}}' => $customData['work_location'] ?? ($company->city ? $company->city . ' Office' : 'Kathmandu Office'),
+            '{{employee.work_location}}' => $customData['work_location'] ?? ($company?->city ? $company->city . ' Office' : ''),
             '{{employee.working_schedule}}' => $customData['working_schedule'] ?? '9 AM – 6 PM',
             '{{employee.payment_method}}' => $customData['payment_method'] ?? 'Bank Transfer',
             '{{employee.bank_name}}' => $customData['bank_name'] ?? ($employee->bank_name ?: 'Not Provided'),
@@ -190,23 +199,23 @@ class DocumentGenerationService
             '{{employee.registration_date}}' => $regDate,
 
             // Company variables
-            '{{company.name}}' => 'GOSIKA INFOSYS',
-            '{{company.tagline}}' => 'Build • Innovate • Grow',
-            '{{company.address}}' => $customData['company_address'] ?? ($company->address ?: 'Kathmandu, Nepal'),
-            '{{company.city}}' => $company->city ?: 'Kathmandu',
-            '{{company.country}}' => $company->country ?: 'Nepal',
-            '{{company.phone}}' => $company->phone ?: '+977-1-4567890',
-            '{{company.email}}' => $company->email ?: 'info@gosika.com',
-            '{{company.website}}' => $company->website ?: 'www.gosika.com',
-            '{{company.registration_no}}' => $company->registration_no ?: 'REG-284910/080/081',
-            '{{company.pan_vat_no}}' => $company->pan_vat_no ?: '612093845',
-            '{{company.authorized_representative}}' => $customData['authorized_representative'] ?? ($company->authorized_representative ?? 'Bikash Pandey'),
+            '{{company.name}}' => $company?->company_name ?? '',
+            '{{company.tagline}}' => '',
+            '{{company.address}}' => $company?->address ?? '',
+            '{{company.city}}' => $company?->city ?? '',
+            '{{company.country}}' => $company?->country ?? '',
+            '{{company.phone}}' => $company?->phone ?? '',
+            '{{company.email}}' => $company?->email ?? '',
+            '{{company.website}}' => $company?->website ?? '',
+            '{{company.registration_no}}' => $company?->registration_no ?? '',
+            '{{company.pan_vat_no}}' => $company?->pan_vat_no ?? '',
+            '{{company.authorized_representative}}' => $customData['authorized_representative'] ?? '',
 
             // Agreement variables
             '{{agreement.number}}' => $bondNumber,
             '{{agreement.date}}' => $agreementDate,
             '{{agreement.effective_date}}' => $joiningDate,
-            '{{hr.representative_name}}' => $customData['hr_representative_name'] ?? 'HR Representative',
+            '{{hr.representative_name}}' => $customData['hr_representative_name'] ?? auth()->user()?->name ?? '',
         ];
     }
 
@@ -278,9 +287,9 @@ class DocumentGenerationService
 
         $sections = [
             'header' => [
-                'company_name' => 'GOSIKA INFOSYS',
-                'tagline' => 'Build • Innovate • Grow',
-                'top_right_text' => 'Together for a Better Tomorrow',
+                'company_name' => '{{company.name}}',
+                'tagline' => '',
+                'top_right_text' => '',
                 'title' => 'EMPLOYEE REGISTRATION FORM',
                 'subtitle' => 'Confidential – Human Resources Department',
                 'badge_id_label' => 'Employee ID',
@@ -371,7 +380,7 @@ class DocumentGenerationService
                 'code' => 'section_f',
                 'letter' => 'F',
                 'title' => 'Employee Declaration',
-                'declaration_text' => 'I hereby declare that the information provided above is true and accurate. I agree to comply with Gosika Infosys company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.',
+                'declaration_text' => 'I hereby declare that the information provided above is true and accurate. I agree to comply with company policies, professional standards, assigned responsibilities, confidentiality requirements and lawful instructions.',
                 'employee_name_label' => 'Employee Name',
                 'signature_label' => 'Signature',
                 'date_label' => 'Date',
@@ -393,11 +402,11 @@ class DocumentGenerationService
                 'authorized_signature_label' => 'Authorized Signature',
             ],
             'footer' => [
-                'address' => 'Kathmandu, Nepal',
-                'website' => 'www.gosika.com',
-                'email' => 'info@gosika.com',
-                'brand_text' => 'Gosika Infosys',
-                'tagline' => 'Growing Together',
+                'address' => '{{company.address}}, {{company.city}}, {{company.country}}',
+                'website' => '{{company.website}}',
+                'email' => '{{company.email}}',
+                'brand_text' => '{{company.name}}',
+                'tagline' => '',
             ],
         ];
 
@@ -405,7 +414,7 @@ class DocumentGenerationService
             'code' => 'employee_registration_form',
             'name' => 'Official Employee Registration Form',
             'type' => 'registration_form',
-            'description' => 'Official physical registration document for newly registered Gosika Infosys employees.',
+            'description' => 'Official physical registration document for newly registered employees.',
             'is_active' => true,
             'current_version' => 1,
             'design_config' => $design,
@@ -417,7 +426,7 @@ class DocumentGenerationService
             'version_number' => 1,
             'design_config' => $design,
             'sections_data' => $sections,
-            'change_summary' => 'Initial approved Gosika Infosys official template design.',
+            'change_summary' => 'Initial approved employee registration template design.',
         ]);
 
         return $template;
@@ -432,9 +441,9 @@ class DocumentGenerationService
 
         $sections = [
             'header' => [
-                'company_name' => 'GOSIKA INFOSYS',
-                'tagline' => 'Build • Innovate • Grow',
-                'top_right_text' => 'Together for a Better Tomorrow',
+                'company_name' => '{{company.name}}',
+                'tagline' => '',
+                'top_right_text' => '',
                 'title' => 'EMPLOYMENT BOND',
                 'subtitle' => 'Confidential – Human Resources Department',
                 'badge_bond_label' => 'Bond Number',
@@ -445,7 +454,7 @@ class DocumentGenerationService
                 'company' => [
                     'letter' => 'A',
                     'title' => 'Company',
-                    'name' => 'Gosika Infosys',
+                    'name' => '{{company.name}}',
                     'address' => '{{company.address}}, {{company.city}}, {{company.country}}',
                     'representative' => '{{company.authorized_representative}}',
                 ],
@@ -493,7 +502,7 @@ class DocumentGenerationService
                 [
                     'num' => 5,
                     'title' => 'Intellectual Property & Ownership',
-                    'body' => 'Work created by the employee within their duties shall belong to Gosika Infosys, including software, designs, documentation and other deliverables.',
+                    'body' => 'Work created by the employee within their duties shall belong to the company, including software, designs, documentation and other deliverables.',
                 ],
                 [
                     'num' => 6,
@@ -538,18 +547,18 @@ class DocumentGenerationService
                     'employee_id' => '{{employee.id}}',
                 ],
                 'company' => [
-                    'box_title' => 'FOR GOSIKA INFOSYS',
+                    'box_title' => 'FOR {{company.name}}',
                     'representative' => '{{company.authorized_representative}}',
                     'designation' => 'Authorized Representative',
                     'has_stamp_box' => true,
                 ],
             ],
             'footer' => [
-                'address' => 'Kathmandu, Nepal',
-                'website' => 'www.gosika.com',
-                'email' => 'info@gosika.com',
-                'brand_text' => 'Gosika Infosys',
-                'tagline' => 'Growing Together',
+                'address' => '{{company.address}}, {{company.city}}, {{company.country}}',
+                'website' => '{{company.website}}',
+                'email' => '{{company.email}}',
+                'brand_text' => '{{company.name}}',
+                'tagline' => '',
             ],
         ];
 
@@ -557,7 +566,7 @@ class DocumentGenerationService
             'code' => 'employment_bond',
             'name' => 'Official Employment Bond Agreement',
             'type' => 'employment_bond',
-            'description' => 'Formal employment bond agreement for newly registered Gosika Infosys employees governed by Nepal Labour Act.',
+            'description' => 'Formal employment bond agreement for newly registered employees governed by applicable labor law.',
             'is_active' => true,
             'current_version' => 1,
             'design_config' => $design,
@@ -569,7 +578,7 @@ class DocumentGenerationService
             'version_number' => 1,
             'design_config' => $design,
             'sections_data' => $sections,
-            'change_summary' => 'Initial approved Gosika Infosys employment bond template.',
+            'change_summary' => 'Initial approved employment bond template.',
         ]);
 
         return $template;
@@ -581,7 +590,8 @@ class DocumentGenerationService
     public function generateRegistrationFormPdf(Employee $employee, ?DocumentTemplate $template = null, array $customData = []): GeneratedEmployeeDocument
     {
         $template = $template ?: $this->getRegistrationFormTemplate();
-        $variables = $this->compileVariables($employee, $customData);
+        $reportSettings = $this->corporateSettings->forReport();
+        $variables = $this->compileVariables($employee, $customData, $reportSettings);
 
         // Interpolate all text in template
         $design = array_merge(DocumentTemplate::defaultDesignConfig(), $template->design_config ?: []);
@@ -605,11 +615,12 @@ class DocumentGenerationService
             'sections' => $sections,
             'v' => $cleanVars,
             'docNumber' => $docNumber,
-            'company' => CompanySetting::current(),
-            'logoBase64' => $this->getLogoBase64(),
-            'iconBase64' => $this->getIconBase64(),
-            'watermarkBase64' => $this->getWatermarkBase64(),
-            'stampBase64' => $this->getStampBase64(),
+            'company' => $reportSettings['company'],
+            'reportSettings' => $reportSettings,
+            'logoBase64' => $this->getLogoBase64($reportSettings),
+            'iconBase64' => $this->getIconBase64($reportSettings),
+            'watermarkBase64' => $this->getWatermarkBase64($reportSettings),
+            'stampBase64' => $this->getStampBase64($reportSettings),
         ];
 
         $pdf = $this->pdfService->render('pdf.documents.registration_form', $viewData, 'a4', 'portrait');
@@ -657,7 +668,8 @@ class DocumentGenerationService
     public function generateEmploymentBondPdf(Employee $employee, ?DocumentTemplate $template = null, array $customData = []): GeneratedEmployeeDocument
     {
         $template = $template ?: $this->getEmploymentBondTemplate();
-        $variables = $this->compileVariables($employee, $customData);
+        $reportSettings = $this->corporateSettings->forReport();
+        $variables = $this->compileVariables($employee, $customData, $reportSettings);
 
         $design = array_merge(DocumentTemplate::defaultDesignConfig(), $template->design_config ?: []);
         $sections = $this->interpolateArray($template->sections_data ?: [], $variables);
@@ -682,11 +694,12 @@ class DocumentGenerationService
             'v' => $cleanVars,
             'docNumber' => $docNumber,
             'agreementNumber' => $agreementNumber,
-            'company' => CompanySetting::current(),
-            'logoBase64' => $this->getLogoBase64(),
-            'iconBase64' => $this->getIconBase64(),
-            'watermarkBase64' => $this->getWatermarkBase64(),
-            'stampBase64' => $this->getStampBase64(),
+            'company' => $reportSettings['company'],
+            'reportSettings' => $reportSettings,
+            'logoBase64' => $this->getLogoBase64($reportSettings),
+            'iconBase64' => $this->getIconBase64($reportSettings),
+            'watermarkBase64' => $this->getWatermarkBase64($reportSettings),
+            'stampBase64' => $this->getStampBase64($reportSettings),
         ];
 
         $pdf = $this->pdfService->render('pdf.documents.employment_bond', $viewData, 'a4', 'portrait');
@@ -745,71 +758,56 @@ class DocumentGenerationService
     /**
      * Get logo as base64 string for robust DomPDF rendering.
      */
-    public function getLogoBase64(): string
+    public function getLogoBase64(?array $reportSettings = null): string
     {
-        $company = CompanySetting::current();
-        if ($company->logo_path && Storage::disk('public')->exists($company->logo_path)) {
-            $content = Storage::disk('public')->get($company->logo_path);
-            $mime = Storage::disk('public')->mimeType($company->logo_path) ?: 'image/png';
-            return 'data:' . $mime . ';base64,' . base64_encode($content);
+        $logoPath = ($reportSettings ?? $this->corporateSettings->forReport())['logo_path'];
+        if (! $logoPath) {
+            return '';
         }
 
-        // Fallback to public icon or SVG
-        $iconPath = public_path('images/gosika-icon.png');
-        if (file_exists($iconPath)) {
-            return 'data:image/png;base64,' . base64_encode(file_get_contents($iconPath));
+        $content = file_get_contents($logoPath);
+        if ($content === false) {
+            throw new \RuntimeException('Unable to read the configured company logo.');
         }
 
-        $svgPath = public_path('gosika-logo.svg');
-        if (file_exists($svgPath)) {
-            $content = file_get_contents($svgPath);
-            return 'data:image/svg+xml;base64,' . base64_encode($content);
-        }
+        $mime = mime_content_type($logoPath) ?: 'image/png';
 
-        return '';
+        return 'data:'.$mime.';base64,'.base64_encode($content);
     }
 
     /**
      * Get standalone brand icon mark as base64.
      */
-    public function getIconBase64(): string
+    public function getIconBase64(?array $reportSettings = null): string
     {
-        $iconPath = public_path('images/gosika-icon.png');
-        if (file_exists($iconPath)) {
-            return 'data:image/png;base64,' . base64_encode(file_get_contents($iconPath));
-        }
-        return $this->getLogoBase64();
+        return $this->getLogoBase64($reportSettings);
     }
 
     /**
      * Get watermark emblem with baked faint opacity as base64.
      */
-    public function getWatermarkBase64(): string
+    public function getWatermarkBase64(?array $reportSettings = null): string
     {
-        $watermarkPath = public_path('images/gosika-watermark.png');
-        if (file_exists($watermarkPath)) {
-            return 'data:image/png;base64,' . base64_encode(file_get_contents($watermarkPath));
-        }
-        return $this->getIconBase64();
+        return $this->getLogoBase64($reportSettings);
     }
 
     /**
      * Get official circular company stamp as base64.
      */
-    public function getStampBase64(): string
+    public function getStampBase64(?array $reportSettings = null): string
     {
-        $company = CompanySetting::current();
-        if ($company->stamp_signature_path && Storage::disk('public')->exists($company->stamp_signature_path)) {
-            $content = Storage::disk('public')->get($company->stamp_signature_path);
-            $mime = Storage::disk('public')->mimeType($company->stamp_signature_path) ?: 'image/png';
-            return 'data:' . $mime . ';base64,' . base64_encode($content);
+        $stampPath = ($reportSettings ?? $this->corporateSettings->forReport())['stamp_signature_path'];
+        if (! $stampPath) {
+            return '';
         }
 
-        $stampPath = public_path('images/gosika-stamp.png');
-        if (file_exists($stampPath)) {
-            return 'data:image/png;base64,' . base64_encode(file_get_contents($stampPath));
+        $content = file_get_contents($stampPath);
+        if ($content === false) {
+            throw new \RuntimeException('Unable to read the configured company signature.');
         }
 
-        return '';
+        $mime = mime_content_type($stampPath) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode($content);
     }
 }

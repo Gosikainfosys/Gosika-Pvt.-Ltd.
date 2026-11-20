@@ -303,6 +303,10 @@
     </style>
 </head>
 <body>
+    @php
+        $header = $reportSettings['header'];
+        $footer = $reportSettings['footer'];
+    @endphp
 
     <!-- FRONT SIDE (LANDSCAPE CR80) -->
     <div class="card">
@@ -310,11 +314,14 @@
         <div class="lanyard-slot"></div>
 
         <div class="header">
-            @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo-img" alt="Logo">
-            @else
-                <div class="company-name">GOSIKA <span>OFFICE</span></div>
-                <div class="company-sub">Official Employee Identity</div>
+            @if($reportSettings['logo_path'])
+                <img src="{{ $reportSettings['logo_path'] }}" class="logo-img" alt="{{ $header['company_name'] ?: 'Company logo' }}">
+            @endif
+            @if($header['company_name'])
+                <div class="company-name">{{ $header['company_name'] }}</div>
+            @endif
+            @if($header['trading_name'])
+                <div class="company-sub">{{ $header['trading_name'] }}</div>
             @endif
         </div>
 
@@ -357,7 +364,7 @@
         </div>
 
         <div class="footer-banner">
-            {{ $company->website ?? 'https://gosika.com' }}
+            {{ $footer['website'] ?: $footer['text'] }}
         </div>
     </div>
 
@@ -367,7 +374,9 @@
         <div class="lanyard-slot"></div>
 
         <div class="back-body">
-            <div class="back-title">Property of {{ $company->trading_name ?? 'GOSIKA' }}</div>
+            @if($header['trading_name'] || $header['company_name'])
+                <div class="back-title">Property of {{ $header['trading_name'] ?: $header['company_name'] }}</div>
+            @endif
             <div class="back-subtitle">Please return if found</div>
 
             <div class="terms-box">
@@ -378,11 +387,13 @@
             </div>
 
             <div class="contact-box">
-                <strong>{{ $company->company_name ?? 'GOSIKA Pvt. Ltd.' }}</strong>
-                @if($company->address) {{ $company->address }}<br> @endif
-                @if($company->city || $company->country) {{ $company->city }}@if($company->city && $company->country), @endif{{ $company->country }}<br> @endif
-                Tel: {{ $company->phone ?? '+977-1-4567890' }}<br>
-                Email: {{ $company->email ?? 'hr@gosika.com' }}
+                @if($header['company_name'])<strong>{{ $header['company_name'] }}</strong>@endif
+                @if($header['address']){{ $header['address'] }}<br>@endif
+                @if($header['registration_no'])Registration No.: {{ $header['registration_no'] }}<br>@endif
+                @if($header['pan_vat_no'])PAN/VAT: {{ $header['pan_vat_no'] }}<br>@endif
+                @if($header['phone'])Tel: {{ $header['phone'] }}<br>@endif
+                @if($header['email'])Email: {{ $header['email'] }}<br>@endif
+                @if($header['website']){{ $header['website'] }}@endif
             </div>
 
             <div class="sig-block">
@@ -402,7 +413,7 @@
         </div>
 
         <div class="footer-banner" style="background: #FF5500;">
-            OFFICIAL COMPANY RECORD
+            {{ $footer['text'] }}
         </div>
     </div>
 

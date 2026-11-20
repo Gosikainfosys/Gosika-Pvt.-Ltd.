@@ -31,8 +31,9 @@ export default function Edit({
     template,
     availableVariables = {},
     employees = [],
-    company = {}
+    company: companyProp = {}
 }) {
+    const company = companyProp || {};
     const [editorTab, setEditorTab] = useState('content'); // 'content' | 'design' | 'variables'
     const [previewZoom, setPreviewZoom] = useState(100);
     const [previewMode, setPreviewMode] = useState('layout');
@@ -54,12 +55,14 @@ export default function Edit({
         text_color: '#202124',
         font_family: 'DejaVu Sans',
         font_size: '8pt',
-        header_top_right: 'Together for a Better Tomorrow',
-        company_name: 'GOSIKA INFOSYS',
-        tagline: 'Build • Innovate • Grow',
-        footer_text: 'Gosika Infosys - Growing Together',
+        header_top_right: '',
+        company_name: '',
+        tagline: '',
+        footer_text: '',
     });
     const [sections, setSections] = useState(template.sections_data || {});
+    const companyName = company.company_name || '';
+    const companyAddress = company.address || [company.city, company.country].filter(Boolean).join(', ');
 
     const isRegistration = template.type === 'registration_form' || template.code === 'employee_registration_form';
     const isBond = template.type === 'employment_bond' || template.code === 'employment_bond';
@@ -171,9 +174,9 @@ export default function Edit({
                     employment_type: 'Full-time',
                     joining_date: '01-11-2026',
                     probation_period: '3 Months',
-                    salary: 'NPR 60,000',
+                    salary: `${company.currency_symbol || company.currency || ''} 60,000`.trim(),
                     reporting_manager: 'Sunil Adhikari',
-                    work_location: 'Kathmandu Office',
+                    work_location: company.city ? `${company.city} Office` : '',
                     working_schedule: '9 AM – 6 PM',
                     payment_method: 'Bank Transfer',
                     emergency_contact_name: 'Ramesh Mahato',
@@ -183,16 +186,16 @@ export default function Edit({
                     institution: 'Tribhuvan University',
                     technical_skills: 'React, Node.js, Python',
                     previous_experience: '1 Year',
-                    previous_organization: 'ABC Tech Pvt. Ltd.',
+                    previous_organization: 'Prior Employer',
                     certifications: 'AWS, React',
                     portfolio: 'https://github.com/sitalmahato00',
                     primary_responsibilities: 'Develop web applications and maintain systems.',
                     secondary_responsibilities: 'Improve performance and ensure quality.',
-                    assigned_projects: 'Gosika Marketplace',
+                    assigned_projects: 'Internal Platform',
                     performance_targets: 'Meet project deadlines.',
                     reporting_requirements: 'Weekly progress report.',
                     authorized_system_access: 'Development Tools, Admin Panel',
-                    department_head: 'Bikash Pandey',
+                    department_head: '',
                     registration_date: '01-11-2026',
                 };
             }
@@ -213,9 +216,9 @@ export default function Edit({
             employment_type: 'Full-time',
             joining_date: '01-11-2026',
             probation_period: '3 Months',
-            salary: 'NPR 60,000',
+            salary: `${company.currency_symbol || company.currency || ''} 60,000`.trim(),
             reporting_manager: 'Sunil Adhikari',
-            work_location: 'Kathmandu Office',
+            work_location: company.city ? `${company.city} Office` : '',
             working_schedule: '9 AM – 6 PM',
             payment_method: 'Bank Transfer',
             emergency_contact_name: 'Ramesh Mahato',
@@ -225,19 +228,19 @@ export default function Edit({
             institution: 'Tribhuvan University',
             technical_skills: 'React, Node.js, Python',
             previous_experience: '1 Year',
-            previous_organization: 'ABC Tech Pvt. Ltd.',
+            previous_organization: 'Prior Employer',
             certifications: 'AWS, React',
             portfolio: 'https://github.com/sitalmahato00',
             primary_responsibilities: 'Develop web applications and maintain systems.',
             secondary_responsibilities: 'Improve performance and ensure quality.',
-            assigned_projects: 'Gosika Marketplace',
+            assigned_projects: 'Internal Platform',
             performance_targets: 'Meet project deadlines.',
             reporting_requirements: 'Weekly progress report.',
             authorized_system_access: 'Development Tools, Admin Panel',
-            department_head: 'Bikash Pandey',
+            department_head: '',
             registration_date: '01-11-2026',
         };
-    }, [selectedEmployeeId, employees]);
+    }, [selectedEmployeeId, employees, company.city]);
 
     // Interpolate helper for live preview
     const replaceVars = (text) => {
@@ -280,14 +283,17 @@ export default function Edit({
             .replace(/\{\{employee\.authorized_system_access\}\}/g, sampleEmployee.authorized_system_access)
             .replace(/\{\{employee\.department_head\}\}/g, sampleEmployee.department_head)
             .replace(/\{\{employee\.registration_date\}\}/g, sampleEmployee.registration_date)
-            .replace(/\{\{company\.name\}\}/g, 'GOSIKA INFOSYS')
-            .replace(/\{\{company\.tagline\}\}/g, 'Build • Innovate • Grow')
-            .replace(/\{\{company\.address\}\}/g, company.address || 'Corporate Tower, Tinkune')
-            .replace(/\{\{company\.city\}\}/g, company.city || 'Kathmandu')
-            .replace(/\{\{company\.country\}\}/g, company.country || 'Nepal')
-            .replace(/\{\{company\.website\}\}/g, company.website || 'www.gosika.com')
-            .replace(/\{\{company\.email\}\}/g, company.email || 'info@gosika.com')
-            .replace(/\{\{company\.authorized_representative\}\}/g, 'Bikash Pandey')
+            .replace(/\{\{company\.name\}\}/g, companyName)
+            .replace(/\{\{company\.tagline\}\}/g, '')
+            .replace(/\{\{company\.address\}\}/g, company.address || '')
+            .replace(/\{\{company\.city\}\}/g, company.city || '')
+            .replace(/\{\{company\.country\}\}/g, company.country || '')
+            .replace(/\{\{company\.phone\}\}/g, company.phone || '')
+            .replace(/\{\{company\.email\}\}/g, company.email || '')
+            .replace(/\{\{company\.website\}\}/g, company.website || '')
+            .replace(/\{\{company\.registration_no\}\}/g, company.registration_no || '')
+            .replace(/\{\{company\.pan_vat_no\}\}/g, company.pan_vat_no || '')
+            .replace(/\{\{company\.authorized_representative\}\}/g, '')
             .replace(/\{\{agreement\.number\}\}/g, 'GOS-BOND-0001')
             .replace(/\{\{agreement\.date\}\}/g, '01-11-2026')
             .replace(/\{\{hr\.representative_name\}\}/g, 'Sabin Shrestha');
@@ -473,26 +479,6 @@ export default function Edit({
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Company Header</label>
-                                        <input
-                                            type="text"
-                                            value={sections.header?.company_name || ''}
-                                            onChange={(e) => updateSectionValue('header.company_name', e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Tagline</label>
-                                        <input
-                                            type="text"
-                                            value={sections.header?.tagline || ''}
-                                            onChange={(e) => updateSectionValue('header.tagline', e.target.value)}
-                                            className="w-full border border-gray-300 rounded-lg p-2 text-xs"
-                                        />
-                                    </div>
-                                </div>
                             </div>
 
                             {/* REGISTRATION FORM SPECIFIC SECTIONS */}
@@ -699,7 +685,7 @@ export default function Edit({
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Primary Color (Gosika Orange)</label>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Primary Color</label>
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="color"
@@ -767,25 +753,6 @@ export default function Edit({
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Header Top-Right Slogan</label>
-                                <input
-                                    type="text"
-                                    value={design.header_top_right || 'Together for a Better Tomorrow'}
-                                    onChange={(e) => updateDesign('header_top_right', e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-2 text-xs"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Footer Brand Text</label>
-                                <input
-                                    type="text"
-                                    value={design.footer_text || 'Gosika Infosys - Growing Together'}
-                                    onChange={(e) => updateDesign('footer_text', e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-2 text-xs"
-                                />
-                            </div>
                         </div>
                     )}
 
@@ -948,19 +915,17 @@ export default function Edit({
 
                             {/* Header */}
                             <div className="flex items-center justify-between mb-2">
-                                <div>
-                                    <div className="text-xl font-black text-gray-900 leading-none">
-                                        {sections.header?.company_name || 'GOSIKA INFOSYS'}
-                                    </div>
-                                    <div
-                                        style={{ color: design.primary_color || '#F36B12' }}
-                                        className="text-[9px] font-bold tracking-widest mt-0.5"
-                                    >
-                                        {sections.header?.tagline || 'Build • Innovate • Grow'}
+                                <div className="flex items-center gap-2">
+                                    {company.logo_url && <img src={company.logo_url} alt={companyName || 'Company logo'} className="max-h-10 max-w-24 object-contain" />}
+                                    <div>
+                                        <div className="text-xl font-black text-gray-900 leading-none">{companyName}</div>
+                                        {company.trading_name && <div className="text-[9px] font-bold tracking-widest mt-0.5">{company.trading_name}</div>}
                                     </div>
                                 </div>
-                                <div className="text-xs italic font-medium text-gray-600">
-                                    {design.header_top_right || 'Together for a Better Tomorrow'}
+                                <div className="text-right text-[9px] font-medium text-gray-600">
+                                    {[companyAddress, company.phone, company.email, company.website].filter(Boolean).map((value) => (
+                                        <div key={value}>{value}</div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -1139,9 +1104,11 @@ export default function Edit({
                                             >
                                                 A. Company
                                             </div>
-                                            <div className="font-bold text-gray-900 mt-1">Gosika Infosys</div>
-                                            <div className="text-gray-600 text-[8px]">Kathmandu, Nepal</div>
-                                            <div className="text-gray-600 text-[8px]">Rep: Bikash Pandey</div>
+                                            <div className="font-bold text-gray-900 mt-1">{companyName}</div>
+                                            <div className="text-gray-600 text-[8px]">{companyAddress}</div>
+                                            {replaceVars(sections.parties?.company?.representative) && (
+                                                <div className="text-gray-600 text-[8px]">Rep: {replaceVars(sections.parties.company.representative)}</div>
+                                            )}
                                         </div>
 
                                         <div className="col-span-1 text-center font-bold text-[9px] text-[#F36B12]">
@@ -1204,8 +1171,10 @@ export default function Edit({
                                             <div className="mt-1">Signature: ____________ Date: 01-11-2026</div>
                                         </div>
                                         <div className="border rounded p-1.5 bg-gray-50">
-                                            <div className="font-bold text-gray-800 text-[8px] uppercase mb-1">FOR GOSIKA INFOSYS</div>
-                                            <div>Authorized Rep: Bikash Pandey (Managing Director)</div>
+                                            <div className="font-bold text-gray-800 text-[8px] uppercase mb-1">FOR {companyName}</div>
+                                            {replaceVars(sections.signatures?.company?.representative) && (
+                                                <div>Authorized Rep: {replaceVars(sections.signatures.company.representative)}</div>
+                                            )}
                                             <div className="mt-1">Signature & Stamp: ____________ Date: 01-11-2026</div>
                                         </div>
                                     </div>
@@ -1217,10 +1186,10 @@ export default function Edit({
                                 style={{ backgroundColor: design.primary_color || '#F36B12' }}
                                 className="text-white text-[8px] font-medium p-1.5 rounded-md flex items-center justify-between mt-3"
                             >
-                                <span>&#128205; Kathmandu, Nepal</span>
-                                <span>&#127760; www.gosika.com</span>
-                                <span>&#9993; info@gosika.com</span>
-                                <span className="font-bold">Gosika Infosys</span>
+                                <span>{companyAddress}</span>
+                                <span>{company.website}</span>
+                                <span>{company.phone || company.email}</span>
+                                <span className="font-bold">{company.report_footer_text}</span>
                             </div>
                         </div>
                         </div>

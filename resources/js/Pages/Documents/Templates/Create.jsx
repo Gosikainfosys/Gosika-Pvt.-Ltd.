@@ -18,8 +18,8 @@ export default function Create({ defaultDesign }) {
         design_config: defaultDesign,
         sections_data: {
             header: {
-                company_name: 'GOSIKA INFOSYS',
-                tagline: 'Build • Innovate • Grow',
+                company_name: '{{company.name}}',
+                tagline: '',
                 title: 'OFFICIAL DOCUMENT',
                 subtitle: 'Confidential – Human Resources Department',
             },

@@ -281,15 +281,24 @@
     </style>
 </head>
 <body>
+    @php
+        $header = $reportSettings['header'];
+        $footer = $reportSettings['footer'];
+        $footerContacts = array_filter([
+            $footer['phone'],
+            $footer['email'],
+            $footer['website'],
+        ], fn ($value) => filled($value));
+    @endphp
 
     <!-- Centered Watermark -->
     @if(!empty($watermarkBase64))
         <div class="watermark-bg">
-            <img src="{{ $watermarkBase64 }}" alt="Gosika Watermark">
+            <img src="{{ $watermarkBase64 }}" alt="Company watermark">
         </div>
     @elseif(!empty($logoBase64))
         <div class="watermark-bg">
-            <img src="{{ $logoBase64 }}" alt="Gosika Watermark">
+            <img src="{{ $logoBase64 }}" alt="Company watermark">
         </div>
     @endif
 
@@ -304,24 +313,37 @@
                     <tr>
                         @if(!empty($iconBase64))
                             <td style="width: 44px; padding-right: 6px;">
-                                <img src="{{ $iconBase64 }}" alt="Gosika Icon" style="width: 38px; height: 32px; object-fit: contain;">
+                                <img src="{{ $iconBase64 }}" alt="{{ $header['company_name'] ?: 'Company logo' }}" style="max-width: 38px; max-height: 32px; object-fit: contain;">
                             </td>
                         @elseif(!empty($logoBase64))
                             <td style="width: 44px; padding-right: 6px;">
-                                <img src="{{ $logoBase64 }}" alt="Gosika Logo" style="width: 38px; height: 32px; object-fit: contain;">
+                                <img src="{{ $logoBase64 }}" alt="{{ $header['company_name'] ?: 'Company logo' }}" style="max-width: 38px; max-height: 32px; object-fit: contain;">
                             </td>
                         @endif
                         <td>
-                            <div class="company-name-heading">{{ $sections['header']['company_name'] ?? 'GOSIKA INFOSYS' }}</div>
-                            <div class="company-tagline-text">{{ $sections['header']['tagline'] ?? 'Build • Innovate • Grow' }}</div>
+                            @if($header['company_name'])
+                                <div class="company-name-heading">{{ $header['company_name'] }}</div>
+                            @endif
+                            @if($header['trading_name'])
+                                <div class="company-tagline-text">{{ $header['trading_name'] }}</div>
+                            @endif
+                            @if($header['registration_no'] || $header['pan_vat_no'])
+                                <div class="company-tagline-text">
+                                    @if($header['registration_no']){{ $header['registration_no'] }}@endif
+                                    @if($header['registration_no'] && $header['pan_vat_no']) &bull; @endif
+                                    @if($header['pan_vat_no'])PAN/VAT: {{ $header['pan_vat_no'] }}@endif
+                                </div>
+                            @endif
                         </td>
                     </tr>
                 </table>
             </td>
             <td class="header-right-td">
                 <div class="top-right-slogan">
-                    Together for a<br>
-                    <span style="color: {{ $design['primary_color'] ?? '#F36B12' }}; font-weight: bold;">Better Tomorrow</span>
+                    @if($header['address']){{ $header['address'] }}<br>@endif
+                    @if($header['phone']){{ $header['phone'] }}<br>@endif
+                    @if($header['email']){{ $header['email'] }}<br>@endif
+                    @if($header['website']){{ $header['website'] }}@endif
                 </div>
             </td>
         </tr>
@@ -356,9 +378,15 @@
             <td style="width: 46%; vertical-align: top;">
                 <div class="party-box">
                     <div class="party-header">A. {{ $sections['parties']['company']['title'] ?? 'Company' }}</div>
-                    <div style="font-size: 7.8pt; font-weight: bold; color: #111827;">{{ $sections['parties']['company']['name'] ?? 'Gosika Infosys' }}</div>
-                    <div style="font-size: 6.9pt; color: #4B5563;">Address: {{ $sections['parties']['company']['address'] ?? (($v['company_address'] ?? 'Corporate Tower, Tinkune') . ', ' . ($v['company_city'] ?? 'Kathmandu')) }}</div>
-                    <div style="font-size: 6.9pt; color: #4B5563;">Authorized Representative: <strong>{{ $sections['parties']['company']['representative'] ?? ($v['company_authorized_representative'] ?? 'Bikash Pandey') }}</strong></div>
+                    @if($header['company_name'])
+                        <div style="font-size: 7.8pt; font-weight: bold; color: #111827;">{{ $header['company_name'] }}</div>
+                    @endif
+                    @if($header['address'])
+                        <div style="font-size: 6.9pt; color: #4B5563;">Address: {{ $header['address'] }}</div>
+                    @endif
+                    @if($sections['parties']['company']['representative'] ?? false)
+                        <div style="font-size: 6.9pt; color: #4B5563;">Authorized Representative: <strong>{{ $sections['parties']['company']['representative'] }}</strong></div>
+                    @endif
                 </div>
             </td>
 
@@ -449,12 +477,16 @@
                             <div style="padding-top: 14px; font-weight: bold;">OFFICIAL<br>STAMP</div>
                         @endif
                     </div>
-                    <div class="sig-card-header">FOR GOSIKA INFOSYS</div>
+                    <div class="sig-card-header">
+                        @if($header['company_name'])FOR {{ $header['company_name'] }}@endif
+                    </div>
                     <table style="width: 76%; font-size: 7pt; border-collapse: collapse;">
-                        <tr>
-                            <td style="width: 95px; color: #4B5563; padding: 1.5px 0;">Authorized Rep:</td>
-                            <td style="padding: 1.5px 0;"><strong>{{ $v['company_authorized_representative'] ?? 'Bikash Pandey' }}</strong></td>
-                        </tr>
+                        @if($v['company_authorized_representative'] ?? false)
+                            <tr>
+                                <td style="width: 95px; color: #4B5563; padding: 1.5px 0;">Authorized Rep:</td>
+                                <td style="padding: 1.5px 0;"><strong>{{ $v['company_authorized_representative'] }}</strong></td>
+                            </tr>
+                        @endif
                         <tr>
                             <td style="color: #4B5563; padding: 1.5px 0;">Designation:</td>
                             <td style="padding: 1.5px 0;">Authorized Signatory</td>
@@ -478,11 +510,12 @@
     <div class="footer-banner">
         <table class="footer-table">
             <tr>
-                <td style="width: 32%;">&#128205; {{ $v['company_address'] ?? 'Corporate Tower, Tinkune' }}, {{ $v['company_city'] ?? 'Kathmandu' }}</td>
-                <td style="width: 22%;">&#127760; {{ $v['company_website'] ?? 'www.gosika.com' }}</td>
-                <td style="width: 24%;">&#9993; {{ $v['company_email'] ?? 'info@gosika.com' }}</td>
+                <td style="width: 75%;">
+                    {{ $header['address'] }}
+                    @if($footerContacts)&bull; {{ implode(' &bull; ', $footerContacts) }}@endif
+                </td>
                 <td style="width: 22%; text-align: right; font-weight: bold;">
-                    {{ $sections['footer']['brand_text'] ?? 'Gosika Infosys' }} <span style="font-weight: normal; font-size: 6.4pt; display: block;">Growing Together</span>
+                    {{ $footer['text'] }}
                 </td>
             </tr>
         </table>

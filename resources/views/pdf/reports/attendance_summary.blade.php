@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Attendance Summary Report - {{ $company->trading_name ?? 'GOSIKA' }}</title>
+    <title>Attendance Summary Report</title>
     <style>
         @page {
             margin: 18mm 14mm 16mm 14mm;
@@ -193,36 +193,20 @@
             text-align: right;
         }
         @include('pdf.partials.document_styles')
+        @include('pdf.partials.corporate_report_styles')
     </style>
 </head>
 <body>
 
-    <!-- Corporate Letterhead Header -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if(!empty($company->logo_path) && file_exists(public_path('storage/' . $company->logo_path)))
-                    <img src="{{ public_path('storage/' . $company->logo_path) }}" class="logo-img" alt="Logo">
-                @else
-                    <div class="brand-title">GOSIKA <span>OFFICE</span></div>
-                @endif
-                <div class="company-legal">
-                    <strong>{{ $company->company_name ?? 'GOSIKA Pvt. Ltd.' }}</strong> &bull; Reg: {{ $company->registration_no ?? 'REG-284910/080/081' }} &bull; PAN/VAT: {{ $company->pan_vat_no ?? '612093845' }}<br>
-                    {{ $company->address ?? 'Corporate Tower, Level 4, Tinkune' }}, {{ $company->city ?? 'Kathmandu' }}, {{ $company->country ?? 'Nepal' }}<br>
-                    Tel: {{ $company->phone ?? '+977-1-4567890' }} &bull; Email: {{ $company->email ?? 'office@gosika.com' }}
-                </div>
-            </td>
-            <td class="header-meta-cell">
-                <div class="report-badge">MONTHLY ATTENDANCE AUDIT LEDGER</div>
-                <div class="report-meta">
-                    <strong>Period:</strong> {{ $monthName ?? Carbon\Carbon::now()->format('F Y') }}<br>
-                    <strong>Fiscal Year:</strong> {{ $company->fiscal_year ?? '2081/2082' }}<br>
-                    <strong>Date & Time Generated:</strong> {{ Carbon\Carbon::now()->format('Y-m-d H:i:s') }}<br>
-                    <strong>Classification:</strong> OFFICIAL CORPORATE AUDIT
-                </div>
-            </td>
-        </tr>
-    </table>
+    @include('pdf.partials.corporate_report_header', [
+        'reportTitle' => 'Monthly Attendance Audit Ledger',
+        'reportMeta' => [
+            'Period' => $monthName,
+            'Fiscal Year' => $reportSettings['fiscal_year'],
+            'Generated' => $generatedAt->format('Y-m-d H:i:s'),
+            'Prepared By' => $preparedBy,
+        ],
+    ])
 
     <!-- Quick Attendance Metrics -->
     @php
@@ -297,32 +281,25 @@
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Prepared By</div>
-                <div class="sign-sub">Attendance Officer / HR Admin</div>
+                <div class="sign-sub">{{ $preparedBy }}</div>
             </td>
             <td class="sign-cell">
                 <div class="sign-line"></div>
                 <div class="sign-title">Verified By</div>
-                <div class="sign-sub">Operations Supervisor</div>
+                <div class="sign-sub">{{ $verifiedBy }}</div>
             </td>
             <td class="sign-cell">
-                @if(!empty($company->stamp_signature_path) && file_exists(public_path('storage/' . $company->stamp_signature_path)))
-                    <img src="{{ public_path('storage/' . $company->stamp_signature_path) }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
+                @if($reportSettings['stamp_signature_path'])
+                    <img src="{{ $reportSettings['stamp_signature_path'] }}" style="max-height: 32px; display: block; margin: 0 auto -10px auto;" alt="Stamp">
                 @endif
                 <div class="sign-line"></div>
                 <div class="sign-title">Approved By</div>
-                <div class="sign-sub">Managing Director</div>
+                <div class="sign-sub">{{ $authorizedBy }}</div>
             </td>
         </tr>
     </table>
 
-    <div class="footer-note">
-        <div class="footer-left">
-            Official system attendance record &bull; {{ $company->trading_name ?? 'GOSIKA' }} HR Management Module
-        </div>
-        <div class="footer-right">
-            Strictly Confidential
-        </div>
-    </div>
+    @include('pdf.partials.corporate_report_footer')
 
 </body>
 </html>

@@ -18,6 +18,10 @@ export default function Index({ incomes, categories = [], filters }) {
     const [showCategoryForm, setShowCategoryForm] = useState(false);
     const [search, setSearch] = useState(filters.search || '');
     const [categoryId, setCategoryId] = useState(filters.category_id || '');
+    const exportParams = new URLSearchParams();
+    if (filters.search) exportParams.set('search', filters.search);
+    if (filters.category_id) exportParams.set('category_id', filters.category_id);
+    const exportHref = `/finance/income/export-xlsx${exportParams.toString() ? `?${exportParams}` : ''}`;
 
     const form = useForm({
         title: '',
@@ -87,7 +91,14 @@ export default function Index({ incomes, categories = [], filters }) {
                         Track client payments, consulting retainers, and office revenue
                     </p>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
+                    <a
+                        href={exportHref}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#202124] bg-white border border-gray-200 hover:border-[#FF5500] rounded-lg transition"
+                    >
+                        <Download className="h-4 w-4" />
+                        <span>Export Excel</span>
+                    </a>
                     <button
                         onClick={() => {
                             setShowCategoryForm(categories.length === 0);

@@ -7,7 +7,7 @@
 
     <title inertia>{{ config('app.name', 'GOSIKA Office') }}</title>
 
-    @php($companyLogoUrl = \App\Models\CompanySetting::first()?->logo_url)
+    @php($companyLogoUrl = app(\App\Services\CorporateReportSettingsService::class)->forReport()['logo_url'])
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

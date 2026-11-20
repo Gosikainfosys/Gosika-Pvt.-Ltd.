@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Supplier;
 use App\Models\AuditLog;
+use App\Services\CorporateExcelReportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,26 +17,11 @@ class InventoryController extends Controller
 {
     public function index(Request $request)
     {
-        $category = $request->input('category');
-        $lowStockOnly = $request->boolean('low_stock');
-        $search = $request->input('search');
-
-        $query = InventoryItem::with(['supplier', 'transactions' => fn($q) => $q->latest()->limit(5)]);
-
-        if ($category) {
-            $query->where('category', $category);
-        }
-        if ($lowStockOnly) {
-            $query->whereColumn('quantity', '<=', 'min_stock_threshold');
-        }
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('item_code', 'like', "%{$search}%");
-            });
-        }
-
-        $items = $query->latest('id')->paginate(10)->withQueryString();
+        $items = $this->filteredItemsQuery($request)
+            ->with(['transactions' => fn ($query) => $query->latest()->limit(5)])
+            ->latest('id')
+            ->paginate(10)
+            ->withQueryString();
         $suppliers = Supplier::where('status', 'active')->select('id', 'name')->get();
 
         $stats = [
@@ -50,6 +36,84 @@ class InventoryController extends Controller
             'stats' => $stats,
             'filters' => $request->only(['category', 'low_stock', 'search']),
         ]);
+    }
+
+    public function downloadXlsx(Request $request, CorporateExcelReportService $reportService)
+    {
+        $items = $this->filteredItemsQuery($request)->latest('id')->get();
+        $rows = $items->map(fn (InventoryItem $item) => [
+            $item->item_code,
+            $item->name,
+            $item->category,
+            $item->quantity,
+            $item->unit,
+            $item->min_stock_threshold,
+            (float) $item->unit_price,
+            $item->quantity * (float) $item->unit_price,
+            $item->supplier->name ?? null,
+            $item->location,
+        ])->all();
+
+        $metadata = [];
+        if ($request->filled('category')) {
+            $metadata['Category'] = $request->input('category');
+        }
+        if ($request->boolean('low_stock')) {
+            $metadata['Stock Filter'] = 'Low stock only';
+        }
+        if ($request->filled('search')) {
+            $metadata['Search'] = $request->input('search');
+        }
+
+        AuditLog::log('export', 'inventory', null, 'Exported inventory report to XLSX');
+
+        return $reportService->download([
+            'filename' => 'inventory_report.xlsx',
+            'title' => 'Inventory & Stock Valuation Report',
+            'metadata' => $metadata,
+            'columns' => [
+                ['label' => 'Item Code', 'width' => 17],
+                ['label' => 'Item Name', 'width' => 26],
+                ['label' => 'Category', 'width' => 20],
+                ['label' => 'Quantity', 'format' => 'number', 'width' => 14],
+                ['label' => 'Unit', 'width' => 12],
+                ['label' => 'Minimum Stock', 'format' => 'number', 'width' => 16],
+                ['label' => 'Unit Price', 'format' => 'currency', 'width' => 17],
+                ['label' => 'Stock Valuation', 'format' => 'currency', 'width' => 19],
+                ['label' => 'Supplier', 'width' => 24],
+                ['label' => 'Location', 'width' => 23],
+            ],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Inventory Items', 'value' => $items->count(), 'format' => 'number'],
+                ['label' => 'Stock Valuation', 'value' => (float) $items->sum(fn (InventoryItem $item) => $item->quantity * (float) $item->unit_price), 'format' => 'currency'],
+                ['label' => 'Low Stock Items', 'value' => $items->filter(fn (InventoryItem $item) => $item->isLowStock())->count(), 'format' => 'number'],
+            ],
+            'totals' => ['label' => 'TOTAL STOCK VALUATION', 'formulas' => [7 => 'sum']],
+            'orientation' => 'landscape',
+        ]);
+    }
+
+    private function filteredItemsQuery(Request $request)
+    {
+        $query = InventoryItem::with('supplier');
+        $category = $request->input('category');
+        $search = $request->input('search');
+
+        if ($category) {
+            $query->where('category', $category);
+        }
+        if ($request->boolean('low_stock')) {
+            $query->whereColumn('quantity', '<=', 'min_stock_threshold');
+        }
+        if ($search) {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('item_code', 'like', "%{$search}%");
+            });
+        }
+
+        return $query;
     }
 
     public function store(Request $request)
