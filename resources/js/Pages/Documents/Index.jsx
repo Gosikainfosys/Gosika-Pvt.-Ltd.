@@ -56,11 +56,12 @@ function formatDate(d) {
 export default function DocumentsIndex({ documents, employees, projects, stats, categories = [], filters }) {
     const [showUpload, setShowUpload] = useState(false);
     const [previewDocument, setPreviewDocument] = useState(null);
+    const [uploadProgress, setUploadProgress] = useState(null);
     const [search, setSearch] = useState(filters?.search || '');
     const [activeCategory, setActiveCategory] = useState(filters?.category || '');
     const fileRef = useRef();
 
-    const { data, setData, post, processing, progress, errors, reset, clearErrors, setError } = useForm({
+    const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm({
         title: '',
         category: '01_COMPANY_LEGAL_DOCUMENTS',
         employee_id: '',
@@ -83,6 +84,7 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
 
     function resetUpload() {
         reset();
+        setUploadProgress(null);
         if (fileRef.current) fileRef.current.value = '';
     }
 
@@ -116,9 +118,18 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
 
     function handleUpload(e) {
         e.preventDefault();
+        setUploadProgress({ loaded: 0, percentage: 0, total: data.file?.size });
         post('/documents', {
             forceFormData: true,
+            onProgress: (event) => {
+                setUploadProgress({
+                    loaded: event.loaded,
+                    percentage: event.percentage,
+                    total: event.total,
+                });
+            },
             onSuccess: closeUpload,
+            onFinish: () => setUploadProgress(null),
         });
     }
 
@@ -420,23 +431,33 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                     )}
                                 </div>
                                 {errors.file && <p className="text-red-500 text-xs mt-1">{errors.file}</p>}
-                                {processing && progress && (
+                                {processing && (
                                     <div className="mt-3" role="status" aria-live="polite">
                                         <div className="mb-1 flex items-center justify-between text-xs text-gray-600">
-                                            <span>{progress.percentage < 100 ? 'Uploading document…' : 'Finishing upload…'}</span>
-                                            <span>{progress.percentage}%</span>
+                                            <span>
+                                                {uploadProgress?.percentage === undefined
+                                                    ? 'Preparing upload…'
+                                                    : uploadProgress.percentage < 100
+                                                        ? `Uploading document — ${uploadProgress.percentage}%`
+                                                        : 'Saving document…'}
+                                            </span>
+                                            {uploadProgress?.total > 0 && (
+                                                <span>
+                                                    {(uploadProgress.loaded / (1024 * 1024)).toFixed(1)} / {(uploadProgress.total / (1024 * 1024)).toFixed(1)} MB
+                                                </span>
+                                            )}
                                         </div>
                                         <div
                                             role="progressbar"
                                             aria-label="Document upload progress"
                                             aria-valuemin={0}
                                             aria-valuemax={100}
-                                            aria-valuenow={progress.percentage}
+                                            aria-valuenow={uploadProgress?.percentage}
                                             className="h-2 overflow-hidden rounded-full bg-gray-100"
                                         >
                                             <div
-                                                className="h-full rounded-full bg-[#FF5500] transition-[width] duration-200"
-                                                style={{ width: `${progress.percentage}%` }}
+                                                className={`h-full rounded-full bg-[#FF5500] transition-[width] duration-200 ${uploadProgress?.percentage === undefined ? 'w-1/3 animate-pulse' : ''}`}
+                                                style={uploadProgress?.percentage === undefined ? undefined : { width: `${uploadProgress.percentage}%` }}
                                             />
                                         </div>
                                     </div>
@@ -448,7 +469,9 @@ export default function DocumentsIndex({ documents, employees, projects, stats, 
                                 className="px-4 py-2 text-sm border border-[#E5E7EB] rounded-lg hover:bg-gray-50">Cancel</button>
                             <button type="submit" disabled={processing}
                                 className="px-5 py-2 text-sm bg-[#FF5500] text-white rounded-lg hover:bg-orange-600 disabled:opacity-60 transition-colors">
-                                {processing ? 'Uploading...' : 'Upload Document'}
+                                {processing && uploadProgress?.percentage !== undefined
+                                    ? `Uploading ${uploadProgress.percentage}%`
+                                    : processing ? 'Uploading...' : 'Upload Document'}
                             </button>
                         </div>
                     </form>

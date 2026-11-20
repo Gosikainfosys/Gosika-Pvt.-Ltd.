@@ -84,7 +84,7 @@ class DocumentVaultTest extends TestCase
             ])
             ->assertRedirect(route('documents.index'))
             ->assertSessionHasErrors([
-                'file' => 'The upload was interrupted or exceeded the server upload limit. Please retry; if it continues, contact the administrator.',
+                'file' => 'PHP rejected this file because it exceeds upload_max_filesize. Set upload_max_filesize to 20M and post_max_size to 24M in cPanel PHP settings for this domain, then retry.',
             ]);
 
         $this->assertDatabaseCount('documents', 0);

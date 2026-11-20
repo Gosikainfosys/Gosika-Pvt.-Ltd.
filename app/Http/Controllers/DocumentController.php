@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Project;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -75,7 +76,14 @@ class DocumentController extends Controller
     {
         if ($this->requestExceedsPostMaxSize($request)) {
             throw ValidationException::withMessages([
-                'file' => 'The upload is larger than the server allows. Choose a file no larger than 10 MB.',
+                'file' => 'PHP rejected the request because it exceeds post_max_size. In cPanel PHP settings for this domain, set post_max_size to 24M and upload_max_filesize to 20M, then retry.',
+            ]);
+        }
+
+        $file = $request->file('file');
+        if ($file instanceof UploadedFile && ! $file->isValid()) {
+            throw ValidationException::withMessages([
+                'file' => $this->uploadErrorMessage($file->getError()),
             ]);
         }
 
@@ -132,6 +140,18 @@ class DocumentController extends Controller
         AuditLog::log('create', 'documents', $document->id, "Uploaded document: {$document->title} ({$docNumber})");
 
         return back()->with('success', 'Document archived successfully.');
+    }
+
+    private function uploadErrorMessage(int $error): string
+    {
+        return match ($error) {
+            UPLOAD_ERR_INI_SIZE => 'PHP rejected this file because it exceeds upload_max_filesize. Set upload_max_filesize to 20M and post_max_size to 24M in cPanel PHP settings for this domain, then retry.',
+            UPLOAD_ERR_FORM_SIZE => 'The selected file exceeds the 10 MB application limit.',
+            UPLOAD_ERR_PARTIAL => 'The upload was interrupted before it completed. Check your connection and retry.',
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'The server could not save the temporary upload. Contact your hosting provider to check PHP temporary-directory permissions.',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the upload. Contact your hosting provider.',
+            default => 'The file could not be uploaded. Please select it again and retry.',
+        };
     }
 
     private function requestExceedsPostMaxSize(Request $request): bool
