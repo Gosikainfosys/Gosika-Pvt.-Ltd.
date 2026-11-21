@@ -12,6 +12,6 @@
     </style>
 </head>
 <body>
-    @include('pdf.partials.salary_slip_content', ['salary' => $salary, 'company' => $company])
+    @include('pdf.partials.salary_slip_content', ['salary' => $salary, 'reportSettings' => $reportSettings, 'generatedAt' => $generatedAt])
 </body>
 </html>
