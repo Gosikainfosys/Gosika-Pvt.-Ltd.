@@ -698,14 +698,14 @@ class CorporateExcelReportService
             ->setFitToHeight(0)
             ->setFitToPage(true)
             ->setHorizontalCentered(true)
-            ->setVerticalCentered(true)
+            ->setVerticalCentered(false)
             ->setRowsToRepeatAtTop([$headerRow, $headerRow]);
         $sheet->getPageMargins()
             ->setTop(0.35)
             ->setBottom(0.45)
             ->setLeft(0.25)
             ->setRight(0.25)
-            ->setHeader(0.15)
+            ->setHeader(0.5)
             ->setFooter(0.2);
         $sheet->getPageSetup()->setPrintArea("A1:{$lastColumn}".max(1, $lastRow));
         $companyName = $settings['header']['company_name'] ?? '';
@@ -875,70 +875,92 @@ class CorporateExcelReportService
                 return null;
             }
 
-            // Target canvas for A4 landscape page (1100 x 800)
-            $cw = 1100;
-            $ch = 800;
-            $canvas = imagecreatetruecolor($cw, $ch);
-            imagealphablending($canvas, false);
-            imagesavealpha($canvas, true);
-            $transparent = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
-            imagefilledrectangle($canvas, 0, 0, $cw, $ch, $transparent);
+            // ── Helper: build a logo watermark on a transparent canvas ──────
+            $buildCanvas = function (int $cw, int $ch, int $maxDim, int $alphaFloor) use ($sw, $sh, $src): \GdImage {
+                                $ratio = min($maxDim / $sw, $maxDim / $sh);
+                $tw = max(1, (int) round($sw * $ratio));
+                $th = max(1, (int) round($sh * $ratio));
 
-            // Watermark size: ~560x560 (centered dead in the middle of the sheet)
-            $maxDim = 560;
-            $ratio = min($maxDim / $sw, $maxDim / $sh);
-            $tw = max(1, (int) round($sw * $ratio));
-            $th = max(1, (int) round($sh * $ratio));
-            $dx = (int) (($cw - $tw) / 2);
-            $dy = (int) (($ch - $th) / 2);
+                $wm = imagecreatetruecolor($tw, $th);
+                imagealphablending($wm, false);
+                imagesavealpha($wm, true);
+                $t = imagecolorallocatealpha($wm, 255, 255, 255, 127);
+                imagefilledrectangle($wm, 0, 0, $tw, $th, $t);
+                imagecopyresampled($wm, $src, 0, 0, 0, 0, $tw, $th, $sw, $sh);
 
-            $watermark = imagecreatetruecolor($tw, $th);
-            imagealphablending($watermark, false);
-            imagesavealpha($watermark, true);
-            imagefilledrectangle($watermark, 0, 0, $tw, $th, $transparent);
-            imagecopyresampled($watermark, $src, 0, 0, 0, 0, $tw, $th, $sw, $sh);
-            imagedestroy($src);
-
-            // Apply soft watermark transparency (around 16-18% opacity - clearly visible watermark)
-            for ($x = 0; $x < $tw; $x++) {
-                for ($y = 0; $y < $th; $y++) {
-                    $rgba = imagecolorat($watermark, $x, $y);
-                    $a = ($rgba >> 24) & 0x7F;
-                    if ($a < 127) {
-                        $r = ($rgba >> 16) & 0xFF;
-                        $g = ($rgba >> 8) & 0xFF;
-                        $b = $rgba & 0xFF;
-                        $newA = (int) (105 + ($a / 127.0) * (127 - 105));
-                        $newColor = imagecolorallocatealpha($watermark, $r, $g, $b, min(127, $newA));
-                        imagesetpixel($watermark, $x, $y, $newColor);
+                // Apply transparency: alphaFloor = minimum alpha value (higher = more transparent)
+                for ($x = 0; $x < $tw; $x++) {
+                    for ($y = 0; $y < $th; $y++) {
+                        $rgba = imagecolorat($wm, $x, $y);
+                        $a = ($rgba >> 24) & 0x7F;
+                        if ($a < 127) {
+                            $r = ($rgba >> 16) & 0xFF;
+                            $g = ($rgba >> 8) & 0xFF;
+                            $b = $rgba & 0xFF;
+                            $newA = (int) ($alphaFloor + ($a / 127.0) * (127 - $alphaFloor));
+                            $newColor = imagecolorallocatealpha($wm, $r, $g, $b, min(127, $newA));
+                            imagesetpixel($wm, $x, $y, $newColor);
+                        }
                     }
                 }
-            }
 
-            imagealphablending($canvas, true);
-            imagecopy($canvas, $watermark, $dx, $dy, 0, 0, $tw, $th);
-            imagedestroy($watermark);
-            imagesavealpha($canvas, true);
+                $canvas = imagecreatetruecolor($cw, $ch);
+                imagealphablending($canvas, false);
+                imagesavealpha($canvas, true);
+                $bg = imagecolorallocatealpha($canvas, 255, 255, 255, 127);
+                imagefilledrectangle($canvas, 0, 0, $cw, $ch, $bg);
+                $dx = (int) (($cw - $tw) / 2);
+                $dy = (int) (($ch - $th) / 2);
+                imagealphablending($canvas, true);
+                imagecopy($canvas, $wm, $dx, $dy, 0, 0, $tw, $th);
+                imagedestroy($wm);
+                imagesavealpha($canvas, true);
 
+                return $canvas;
+            };
+
+            // ── Screen background: A4 landscape proportions ───────────────
+            $screenCanvas = $buildCanvas(1100, 800, 560, 105); // ~18% opacity
             $tmpFile = tempnam(sys_get_temp_dir(), 'wm_') . '.png';
-            imagepng($canvas, $tmpFile, 6);
-            imagedestroy($canvas);
+            imagepng($screenCanvas, $tmpFile, 6);
+            imagedestroy($screenCanvas);
 
             $watermarkData = file_get_contents($tmpFile);
             if ($watermarkData) {
-                // Background for screen view in Excel / WPS Office
                 $sheet->setBackgroundImage($watermarkData);
-
-                // Page setup header drawing so watermark prints in Print / Print Preview / PDF export
-                $hfd = new HeaderFooterDrawing();
-                $hfd->setName('Watermark');
-                $hfd->setPath($tmpFile);
-                $sheet->getHeaderFooter()->addImage($hfd, HeaderFooter::IMAGE_HEADER_CENTER);
-                $existingOdd = $sheet->getHeaderFooter()->getOddHeader();
-                if (! str_contains($existingOdd, '&G')) {
-                    $sheet->getHeaderFooter()->setOddHeader(trim($existingOdd . ' &C&G'));
-                }
             }
+
+            // ── Print watermark: tall canvas so logo centers on the full A4 page ─
+            // A4 landscape at 96dpi ≈ 1123 x 794px; header area ≈ top 48px (0.5").
+            // We build a canvas = full-page height so the logo sits in the page center.
+            // Excel scales the HeaderFooter image to fit the header height, so we
+            // set a large explicit height on the HFD and position the logo in the
+            // lower half of this tall canvas so it appears centered on the page body.
+            $printCw = 1123;
+            $printCh = 794;  // full A4 landscape page height at 96 dpi
+            $printCanvas = $buildCanvas($printCw, $printCh, 560, 105);
+            imagedestroy($src);
+            $tmpPrint = tempnam(sys_get_temp_dir(), 'wmp_') . '.png';
+            imagepng($printCanvas, $tmpPrint, 6);
+            imagedestroy($printCanvas);
+
+            $hfd = new HeaderFooterDrawing();
+            $hfd->setName('Watermark');
+            $hfd->setPath($tmpPrint);
+            // Set explicit height to full A4 page height in points (A4 = 842pt tall, landscape width)
+            // so Excel stretches the header image to cover the full page
+            $hfd->setHeight(794);
+            $hfd->setResizeProportional(false);
+            $sheet->getHeaderFooter()->addImage($hfd, HeaderFooter::IMAGE_HEADER_CENTER);
+            $existingOdd = $sheet->getHeaderFooter()->getOddHeader();
+            if (! str_contains($existingOdd, '&G')) {
+                $sheet->getHeaderFooter()->setOddHeader(trim($existingOdd . ' &C&G'));
+            }
+
+            // Both temp files must exist until the XLSX is saved by the caller.
+            // We return only the screen tmp path; the print tmp is tracked separately
+            // via a shutdown-registered cleanup so it stays alive during save.
+            register_shutdown_function(fn () => @unlink($tmpPrint));
 
             return $tmpFile;
         } catch (\Throwable $e) {
